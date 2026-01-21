@@ -1,78 +1,68 @@
-# Kamstrup Multical 21 water meter in Home Assistant (Wireless MBus)
+# ESPHome Kamstrup Multical 21 Water Meter Reader
 
 <img align="right" height="250" src="images/kamstrup_multical21.png">
 
 ### Features
- * Configuration ready for Home Assistan with MQTT.
- * Support for AES-128 decryption (with vaild key).
- * CRC Check of recived data.
- * Wireless reading of data.
- * Easy to build and configure.
 
+- Native ESPHome integration with Home Assistant
+- Automatic device discovery
+- OTA updates support
+- Support for AES-128 decryption (with valid key)
+- CRC check of received data
+- Wireless reading of data via wM-Bus Mode C1
+- Easy to build and configure
 
-### Parts 
-Use these arfilliate links to support me!\
+### Parts
+
+Use these affiliate links to support chester4444 for his work!\
 [CC1101 Module](https://s.click.aliexpress.com/e/_oDW0qJ2) \
 [ESP32-C3 Super Mini](https://s.click.aliexpress.com/e/_c3HOPvoX) \
 Some cables
 
 ### Wiring
 
+#### ESP32-C3 Super Mini
+
 | CC1101 | ESP32-C3 Super Mini |
-| --- | --- |
-| VCC | 3V3 |
-| GND | GND |
-| CSN | 7 |
-| MOSI| 6 |
-| MISO| 5 |
-| SCK | 4 |
-| GD0 | 10 |
-| GD2 | Not Connected |
+| ------ | ------------------- |
+| VCC    | 3V3                 |
+| GND    | GND                 |
+| CSN    | 7                   |
+| MOSI   | 6                   |
+| MISO   | 5                   |
+| SCK    | 4                   |
+| GD0    | 10                  |
+| GD2    | Not Connected       |
 
+<img height="300" src="images/esp32_c3_mini.jpg"> <img height="300" src="images/esp32_c3_mini_pinout.jpg">
 
-<img height="300" src="images/esp32_c3_mini.jpg"> <img height="300" src="images/esp32_c3_mini_pinout.jpg"> 
+### Installation
 
-### Build and Upload Firmware
-* Make sure you have a decryption key for your meter (you need to ask your water service provider for it).
-* Read the serial number on the meter (typically S/N: XXXXXXXX/A/20, the serial number is the XXXXXXXXX part).
-* Rename credentials_template.h to credentials.h and add your details.
-* Compile and upload:
-  - You need [VS Code](https://code.visualstudio.com/) and the [PIO Plugin](https://platformio.org/)
-  - Open the project folder with the platformio.ini file (File -> Open Folder...), connect the ESP32 via USB then build and upload with Ctrl+Alt+U.
+See the complete installation guide in the [esphome](esphome) directory:
+
+- [ESPHome README](esphome/README.md) - Full installation and configuration guide
+
+#### Quick Start
+
+1. Copy `esphome/secrets.yaml.example` to `esphome/secrets.yaml` and fill in your WiFi credentials
+2. Edit `esphome/multical21.yaml` with your meter ID and AES encryption key
+3. Build and flash:
+   ```bash
+   cd esphome
+   esphome run multical21.yaml
+   ```
 
 ### Home Assistant
 
-Setup [MQTT](https://www.home-assistant.io/integrations/mqtt/) if you don't already have it.
+This ESPHome integration automatically discovers and registers all sensors with Home Assistant. No manual MQTT configuration needed!
 
-Add this to configuration.yaml
-```
-mqtt:
-  sensor:
-    - name: "Water Meter Usage"
-      state_topic: "watermeter/0/sensor/mydatajson"
-      unit_of_measurement: "m³"
-      value_template: "{{ value_json.CurrentValue }}"
-      device_class: water
-      state_class: total_increasing
-      availability:
-        - topic: "watermeter/0/online"
-          payload_available: "True"
-          payload_not_available: "False"
-    - name: "Water Meter Month Start Value"
-      state_topic: "watermeter/0/sensor/mydatajson"
-      unit_of_measurement: "m³"
-      value_template: "{{ value_json.MonthStartValue }}"
-      device_class: water
-      state_class: total_increasing
-    - name: "Water Meter Room Temperature"
-      state_topic: "watermeter/0/sensor/mydatajson"
-      value_template: "{{ value_json.RoomTemp }}"
-      unit_of_measurement: "°C"
-    - name: "Water Meter Water Temperature"
-      state_topic: "watermeter/0/sensor/mydatajson"
-      value_template: "{{ value_json.WaterTemp }}"
-      unit_of_measurement: "°C"
-```
+The following entities are created automatically:
+
+- **Total Water Consumption** - Current total in m³
+- **Month Start Value** - Billing period start value in m³
+- **Water Temperature** - Flow temperature in °C
+- **Ambient Temperature** - Room temperature in °C
+- Plus WiFi signal, uptime, and diagnostic sensors
 
 Donation using [Ko-Fi](https://ko-fi.com/patriksretrotech) or [PayPal](https://www.paypal.com/donate/?business=UCTJFD6L7UYFL&no_recurring=0&item_name=Please+support+me%21&currency_code=SEK) are highly appreciated!
 
