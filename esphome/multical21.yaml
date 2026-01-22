@@ -63,15 +63,18 @@ status_led:
 
 # SPI bus for CC1101
 spi:
-  - id: spi_bus
-    clk_pin: GPIO4
-    mosi_pin: GPIO6
-    miso_pin: GPIO5
+  id: spi_bus
+  clk_pin: GPIO4
+  mosi_pin: GPIO6
+  miso_pin: GPIO5
 
 # External custom components
 external_components:
-  - source: github://petterl/esp32-multical21@master
-    components: [multical21]
+  - source:
+      type: local
+      path: components
+  # - source: github://petterl/esp32-multical21@master
+  #   components: [multical21]
 
 # Multical21 water meter sensor
 multical21:
