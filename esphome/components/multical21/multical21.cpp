@@ -33,12 +33,6 @@ static const uint8_t AES_RCON[11] = {0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0
 void Multical21Component::setup() {
   ESP_LOGCONFIG(TAG, "Setting up Multical21...");
 
-  // Setup CS pin
-  if (this->cs_pin_ != nullptr) {
-    this->cs_pin_->setup();
-    this->cs_pin_->digital_write(true);  // Deselect
-  }
-
   // Setup GDO0 pin
   if (this->gdo0_pin_ != nullptr) {
     this->gdo0_pin_->setup();
@@ -93,7 +87,6 @@ void Multical21Component::update() {
 
 void Multical21Component::dump_config() {
   ESP_LOGCONFIG(TAG, "Multical21:");
-  LOG_PIN("  CS Pin: ", this->cs_pin_);
   LOG_PIN("  GDO0 Pin: ", this->gdo0_pin_);
   ESP_LOGCONFIG(TAG, "  Meter ID: %02X%02X%02X%02X", this->meter_id_[0], this->meter_id_[1], this->meter_id_[2],
                 this->meter_id_[3]);
@@ -157,60 +150,60 @@ void Multical21Component::hex_to_bytes(const std::string &hex, uint8_t *bytes, s
 }
 
 void Multical21Component::write_register(uint8_t reg, uint8_t value) {
-  this->cs_pin_->digital_write(false);
+  this->enable();
   delayMicroseconds(5);
   this->transfer_byte(reg);
   this->transfer_byte(value);
-  this->cs_pin_->digital_write(true);
+  this->disable();
 }
 
 uint8_t Multical21Component::read_register(uint8_t reg) {
-  this->cs_pin_->digital_write(false);
+  this->enable();
   delayMicroseconds(5);
   this->transfer_byte(reg | READ_SINGLE);
   uint8_t value = this->transfer_byte(0x00);
-  this->cs_pin_->digital_write(true);
+  this->disable();
   return value;
 }
 
 uint8_t Multical21Component::read_status_register(uint8_t reg) {
-  this->cs_pin_->digital_write(false);
+  this->enable();
   delayMicroseconds(5);
   this->transfer_byte(reg | READ_BURST);
   uint8_t value = this->transfer_byte(0x00);
-  this->cs_pin_->digital_write(true);
+  this->disable();
   return value;
 }
 
 void Multical21Component::read_burst(uint8_t reg, uint8_t *buffer, uint8_t len) {
-  this->cs_pin_->digital_write(false);
+  this->enable();
   delayMicroseconds(5);
   this->transfer_byte(reg | READ_BURST);
   for (uint8_t i = 0; i < len; i++) {
     buffer[i] = this->transfer_byte(0x00);
   }
   delayMicroseconds(2);
-  this->cs_pin_->digital_write(true);
+  this->disable();
 }
 
 void Multical21Component::send_strobe(uint8_t strobe) {
-  this->cs_pin_->digital_write(false);
+  this->enable();
   delayMicroseconds(5);
   this->transfer_byte(strobe);
   delayMicroseconds(5);
-  this->cs_pin_->digital_write(true);
+  this->disable();
 }
 
 bool Multical21Component::reset_cc1101() {
-  this->cs_pin_->digital_write(true);
+  this->disable();
   delayMicroseconds(5);
 
-  this->cs_pin_->digital_write(false);
+  this->enable();
   delayMicroseconds(10);
-  this->cs_pin_->digital_write(true);
+  this->disable();
   delayMicroseconds(45);
 
-  this->cs_pin_->digital_write(false);
+  this->enable();
   delayMicroseconds(5);
 
   this->transfer_byte(CC1101_SRES);
@@ -218,7 +211,7 @@ bool Multical21Component::reset_cc1101() {
   // Wait for reset to complete
   delay(10);
 
-  this->cs_pin_->digital_write(true);
+  this->disable();
 
   // Verify by reading a register
   uint8_t version = this->read_status_register(0x31);  // CC1101_VERSION

@@ -92,7 +92,6 @@ class Multical21Component : public PollingComponent,
   void dump_config() override;
   float get_setup_priority() const override { return setup_priority::DATA; }
 
-  void set_cs_pin(GPIOPin *pin) { this->cs_pin_ = pin; }
   void set_gdo0_pin(GPIOPin *pin) { this->gdo0_pin_ = pin; }
   void set_meter_id(const std::string &meter_id);
   void set_key(const std::string &key);
@@ -130,7 +129,6 @@ class Multical21Component : public PollingComponent,
   // Utility
   void hex_to_bytes(const std::string &hex, uint8_t *bytes, size_t len);
 
-  GPIOPin *cs_pin_{nullptr};
   GPIOPin *gdo0_pin_{nullptr};
 
   uint8_t meter_id_[4]{0};
