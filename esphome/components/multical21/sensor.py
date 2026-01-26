@@ -59,7 +59,7 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_CURRENT_FLOW): sensor.sensor_schema(
             unit_of_measurement=UNIT_LITERS_PER_HOUR,
             accuracy_decimals=1,
-            device_class=DEVICE_CLASS_WATER,
+            # No device_class - DEVICE_CLASS_WATER expects volume units, not flow rate
             state_class=STATE_CLASS_MEASUREMENT,
         ),
     }
