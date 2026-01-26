@@ -486,6 +486,44 @@ void Multical21Component::parse_meter_data(const uint8_t *data, uint8_t length) 
     this->ambient_temp_sensor_->publish_state(ambient_temp);
   }
 
+  // Calculate and publish current flow (L/h)
+  if (this->current_flow_sensor_ != nullptr) {
+    uint32_t current_time = millis();
+    if (this->prev_reading_time_ > 0 && this->prev_total_ > 0) {
+      float delta_total_liters = (total_m3 - this->prev_total_) * 1000.0f;  // Convert m³ to liters
+      float delta_time_hours = (current_time - this->prev_reading_time_) / 3600000.0f;  // Convert ms to hours
+      if (delta_time_hours > 0.001f && delta_total_liters >= 0) {  // Avoid division by zero and negative flow
+        float flow_lph = delta_total_liters / delta_time_hours;
+        this->current_flow_sensor_->publish_state(flow_lph);
+        ESP_LOGD(TAG, "Current flow: %.1f L/h (delta: %.3f L in %.2f min)",
+                 flow_lph, delta_total_liters, delta_time_hours * 60.0f);
+      }
+    }
+    this->prev_total_ = total_m3;
+    this->prev_reading_time_ = current_time;
+  }
+
+  // Calculate and publish daily consumption (L)
+  if (this->daily_consumption_sensor_ != nullptr) {
+    // Get current day from uptime (approximate - resets on reboot)
+    // For accurate daily tracking, use Home Assistant's utility_meter
+    uint32_t uptime_sec = millis() / 1000;
+    uint8_t current_day = (uptime_sec / 86400) % 255;  // Day counter based on uptime
+
+    if (this->day_start_total_ == 0 || current_day != this->last_day_) {
+      // First reading or new day - set baseline
+      this->day_start_total_ = total_m3;
+      this->last_day_ = current_day;
+      ESP_LOGD(TAG, "Daily consumption reset, baseline: %.3f m³", total_m3);
+    }
+
+    float daily_liters = (total_m3 - this->day_start_total_) * 1000.0f;
+    if (daily_liters >= 0) {
+      this->daily_consumption_sensor_->publish_state(daily_liters);
+      ESP_LOGD(TAG, "Daily consumption: %.1f L", daily_liters);
+    }
+  }
+
   // Publish last update time
   if (this->last_update_sensor_ != nullptr) {
     // Simple timestamp using millis
