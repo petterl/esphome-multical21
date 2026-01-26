@@ -368,11 +368,9 @@ bool Multical21Component::decrypt_frame(const uint8_t *payload, uint8_t length) 
     return false;
   }
 
-  // Cipher starts at index 16, and we need to subtract 2 for CRC bytes already removed
-  // Original: cipherLength = length - 2 - 16
-  // But in our case, length already excludes the 2-byte preamble read separately
-  // So cipher_length = length - 16 (payload starts after length byte)
-  uint8_t cipher_length = length - 16;
+  // Cipher starts at index 16, subtract 2 for CRC bytes at end of frame
+  // This matches the original: cipherLength = length - 2 - 16
+  uint8_t cipher_length = length - 2 - 16;
   if (cipher_length > MAX_FRAME_LENGTH - 16 || cipher_length == 0) {
     return false;
   }
