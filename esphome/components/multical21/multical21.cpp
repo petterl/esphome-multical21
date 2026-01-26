@@ -69,19 +69,23 @@ void Multical21Component::loop() {
     return;
   }
 
-  // Check GDO0 for falling edge (HIGH->LOW transition indicates sync word detected)
+  // Check GDO0 for packet available
+  // GDO0 is LOW when sync word detected and stays LOW during packet reception
   if (this->gdo0_pin_ != nullptr) {
-    bool current_gdo0 = this->gdo0_pin_->digital_read();
+    bool gdo0_low = !this->gdo0_pin_->digital_read();
 
-    // Detect falling edge: was HIGH, now LOW
-    if (this->last_gdo0_state_ && !current_gdo0) {
+    if (gdo0_low && !this->packet_available_) {
+      // GDO0 just went LOW - mark packet as available
+      this->packet_available_ = true;
+
       // Try to receive frame
       if (this->receive_frame()) {
         ESP_LOGD(TAG, "Valid frame received from meter");
       }
+    } else if (!gdo0_low) {
+      // GDO0 is HIGH - ready for next packet
+      this->packet_available_ = false;
     }
-
-    this->last_gdo0_state_ = current_gdo0;
   }
 }
 
@@ -145,7 +149,12 @@ void Multical21Component::set_key(const std::string &key) {
       }
     }
 
-    ESP_LOGD(TAG, "AES key set and expanded");
+    // Log key for debugging
+    ESP_LOGD(TAG, "AES key: %02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
+             this->aes_key_[0], this->aes_key_[1], this->aes_key_[2], this->aes_key_[3],
+             this->aes_key_[4], this->aes_key_[5], this->aes_key_[6], this->aes_key_[7],
+             this->aes_key_[8], this->aes_key_[9], this->aes_key_[10], this->aes_key_[11],
+             this->aes_key_[12], this->aes_key_[13], this->aes_key_[14], this->aes_key_[15]);
   }
 }
 
@@ -394,6 +403,12 @@ bool Multical21Component::decrypt_frame(const uint8_t *payload, uint8_t length) 
   iv[8] = payload[10];             // byte 10
   memcpy(&iv[9], &payload[12], 4); // bytes 12-15 (4 bytes)
   // Rest is padded with zeros
+
+  // Log IV for debugging
+  ESP_LOGD(TAG, "IV: %02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
+           iv[0], iv[1], iv[2], iv[3], iv[4], iv[5], iv[6], iv[7],
+           iv[8], iv[9], iv[10], iv[11], iv[12], iv[13], iv[14], iv[15]);
+  ESP_LOGD(TAG, "Cipher length: %d", cipher_length);
 
   // Decrypt using AES-128 CTR mode
   this->aes_ctr_decrypt(&payload[16], this->plaintext_, cipher_length, iv);
