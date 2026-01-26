@@ -1,3 +1,10 @@
+// Multical21 ESPHome Component
+// Kamstrup Multical 21 water meter reader via CC1101 (wM-Bus Mode C1)
+//
+// Based on work by:
+//   Patrik Thalin - https://github.com/pthalin/esp32-multical21
+//   Chester - https://github.com/chester4444/esp-multical21
+
 #pragma once
 
 #include "esphome/core/component.h"
@@ -102,7 +109,6 @@ class Multical21Component : public PollingComponent,
   void set_water_temp_sensor(sensor::Sensor *sensor) { this->water_temp_sensor_ = sensor; }
   void set_ambient_temp_sensor(sensor::Sensor *sensor) { this->ambient_temp_sensor_ = sensor; }
   void set_current_flow_sensor(sensor::Sensor *sensor) { this->current_flow_sensor_ = sensor; }
-  void set_daily_consumption_sensor(sensor::Sensor *sensor) { this->daily_consumption_sensor_ = sensor; }
   void set_last_update_sensor(text_sensor::TextSensor *sensor) { this->last_update_sensor_ = sensor; }
 
  protected:
@@ -143,7 +149,6 @@ class Multical21Component : public PollingComponent,
   sensor::Sensor *water_temp_sensor_{nullptr};
   sensor::Sensor *ambient_temp_sensor_{nullptr};
   sensor::Sensor *current_flow_sensor_{nullptr};
-  sensor::Sensor *daily_consumption_sensor_{nullptr};
   text_sensor::TextSensor *last_update_sensor_{nullptr};
 
   // State
@@ -162,8 +167,6 @@ class Multical21Component : public PollingComponent,
   // Flow calculation state
   float prev_total_{0};            // Previous total for flow calculation
   uint32_t prev_reading_time_{0};  // Time of previous reading (millis)
-  float day_start_total_{0};       // Total at start of day
-  uint8_t last_day_{0};            // Last day number for daily reset
 };
 
 }  // namespace multical21

@@ -1,3 +1,8 @@
+# Multical21 ESPHome Component - Sensor Platform
+# Based on work by:
+#   Patrik Thalin - https://github.com/pthalin/esp32-multical21
+#   Chester - https://github.com/chester4444/esp-multical21
+
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import sensor
@@ -18,10 +23,8 @@ CONF_MONTH_START_VALUE = "month_start_value"
 CONF_WATER_TEMPERATURE = "water_temperature"
 CONF_AMBIENT_TEMPERATURE = "ambient_temperature"
 CONF_CURRENT_FLOW = "current_flow"
-CONF_DAILY_CONSUMPTION = "daily_consumption"
 
 # Unit constants not in esphome.const
-UNIT_LITERS = "L"
 UNIT_LITERS_PER_HOUR = "L/h"
 
 DEPENDENCIES = ["multical21"]
@@ -59,12 +62,6 @@ CONFIG_SCHEMA = cv.Schema(
             device_class=DEVICE_CLASS_WATER,
             state_class=STATE_CLASS_MEASUREMENT,
         ),
-        cv.Optional(CONF_DAILY_CONSUMPTION): sensor.sensor_schema(
-            unit_of_measurement=UNIT_LITERS,
-            accuracy_decimals=1,
-            device_class=DEVICE_CLASS_WATER,
-            state_class=STATE_CLASS_TOTAL_INCREASING,
-        ),
     }
 )
 
@@ -91,7 +88,3 @@ async def to_code(config):
     if CONF_CURRENT_FLOW in config:
         sens = await sensor.new_sensor(config[CONF_CURRENT_FLOW])
         cg.add(parent.set_current_flow_sensor(sens))
-
-    if CONF_DAILY_CONSUMPTION in config:
-        sens = await sensor.new_sensor(config[CONF_DAILY_CONSUMPTION])
-        cg.add(parent.set_daily_consumption_sensor(sens))

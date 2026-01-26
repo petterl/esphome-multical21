@@ -1,3 +1,10 @@
+// Multical21 ESPHome Component
+// Kamstrup Multical 21 water meter reader via CC1101 (wM-Bus Mode C1)
+//
+// Based on work by:
+//   Patrik Thalin - https://github.com/pthalin/esp32-multical21
+//   Chester - https://github.com/chester4444/esp-multical21
+
 #include "multical21.h"
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
@@ -49,12 +56,9 @@ void Multical21Component::loop() {
     return;
   }
 
-  // Check GDO0 for packet available (simple polling - GDO0 LOW means sync detected)
+  // Check GDO0 for packet available (GDO0 LOW means sync detected)
   if (this->gdo0_pin_ != nullptr && !this->gdo0_pin_->digital_read()) {
-    // Try to receive frame
-    if (this->receive_frame()) {
-      ESP_LOGD(TAG, "Valid frame received from meter");
-    }
+    this->receive_frame();
   }
 }
 
@@ -292,21 +296,10 @@ bool Multical21Component::receive_frame() {
   // Restart receiver
   this->start_receiver();
 
-  // Log raw frame with hex dump (like old DEBUG_PRINTF)
-  char hex_buf[MAX_FRAME_LENGTH * 3 + 1];
-  for (uint8_t i = 0; i < length && i < MAX_FRAME_LENGTH; i++) {
-    snprintf(&hex_buf[i * 2], 3, "%02x", this->frame_buffer_[i]);
-  }
-  hex_buf[length * 2] = '\0';
-  ESP_LOGD(TAG, "Payload (%d bytes): %s", length, hex_buf);
-
   // Check meter ID
   if (!this->check_meter_id(this->frame_buffer_)) {
-    ESP_LOGD(TAG, "Meter ID mismatch");
     return false;
   }
-
-  ESP_LOGI(TAG, "Frame matched our meter ID");
 
   // Decrypt and process
   if (this->decrypt_frame(this->frame_buffer_, length)) {
@@ -344,24 +337,9 @@ bool Multical21Component::decrypt_frame(const uint8_t *payload, uint8_t length) 
   memcpy(iv, &payload[1], 8);      // bytes 1-8
   iv[8] = payload[10];             // byte 10
   memcpy(&iv[9], &payload[12], 4); // bytes 12-15 (4 bytes)
-  // Rest is padded with zeros
-
-  // Log IV for debugging
-  ESP_LOGD(TAG, "IV: %02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
-           iv[0], iv[1], iv[2], iv[3], iv[4], iv[5], iv[6], iv[7],
-           iv[8], iv[9], iv[10], iv[11], iv[12], iv[13], iv[14], iv[15]);
-  ESP_LOGD(TAG, "Cipher length: %d", cipher_length);
 
   // Decrypt using AES-128 CTR mode
   this->aes_ctr_decrypt(&payload[16], this->plaintext_, cipher_length, iv);
-
-  // Log decrypted data (like old DEBUG_PRINTF)
-  char hex_buf[MAX_FRAME_LENGTH * 2 + 1];
-  for (uint8_t i = 0; i < cipher_length && i < MAX_FRAME_LENGTH; i++) {
-    snprintf(&hex_buf[i * 2], 3, "%02x", this->plaintext_[i]);
-  }
-  hex_buf[cipher_length * 2] = '\0';
-  ESP_LOGD(TAG, "Decrypted (%d bytes): %s", cipher_length, hex_buf);
 
   // Parse decrypted data
   this->parse_meter_data(this->plaintext_, cipher_length);
@@ -443,11 +421,9 @@ void Multical21Component::parse_meter_data(const uint8_t *data, uint8_t length) 
   uint16_t read_crc = (data[1] << 8) | data[0];
 
   if (calc_crc != read_crc) {
-    ESP_LOGW(TAG, "CRC mismatch: calculated 0x%04X, read 0x%04X", calc_crc, read_crc);
+    ESP_LOGW(TAG, "CRC mismatch");
     return;
   }
-
-  ESP_LOGD(TAG, "CRC OK");
 
   // Parse values (little endian)
   uint32_t total_raw = data[pos_total] | (data[pos_total + 1] << 8) | (data[pos_total + 2] << 16) |
@@ -490,38 +466,15 @@ void Multical21Component::parse_meter_data(const uint8_t *data, uint8_t length) 
   if (this->current_flow_sensor_ != nullptr) {
     uint32_t current_time = millis();
     if (this->prev_reading_time_ > 0 && this->prev_total_ > 0) {
-      float delta_total_liters = (total_m3 - this->prev_total_) * 1000.0f;  // Convert m³ to liters
-      float delta_time_hours = (current_time - this->prev_reading_time_) / 3600000.0f;  // Convert ms to hours
-      if (delta_time_hours > 0.001f && delta_total_liters >= 0) {  // Avoid division by zero and negative flow
+      float delta_total_liters = (total_m3 - this->prev_total_) * 1000.0f;
+      float delta_time_hours = (current_time - this->prev_reading_time_) / 3600000.0f;
+      if (delta_time_hours > 0.001f && delta_total_liters >= 0) {
         float flow_lph = delta_total_liters / delta_time_hours;
         this->current_flow_sensor_->publish_state(flow_lph);
-        ESP_LOGD(TAG, "Current flow: %.1f L/h (delta: %.3f L in %.2f min)",
-                 flow_lph, delta_total_liters, delta_time_hours * 60.0f);
       }
     }
     this->prev_total_ = total_m3;
     this->prev_reading_time_ = current_time;
-  }
-
-  // Calculate and publish daily consumption (L)
-  if (this->daily_consumption_sensor_ != nullptr) {
-    // Get current day from uptime (approximate - resets on reboot)
-    // For accurate daily tracking, use Home Assistant's utility_meter
-    uint32_t uptime_sec = millis() / 1000;
-    uint8_t current_day = (uptime_sec / 86400) % 255;  // Day counter based on uptime
-
-    if (this->day_start_total_ == 0 || current_day != this->last_day_) {
-      // First reading or new day - set baseline
-      this->day_start_total_ = total_m3;
-      this->last_day_ = current_day;
-      ESP_LOGD(TAG, "Daily consumption reset, baseline: %.3f m³", total_m3);
-    }
-
-    float daily_liters = (total_m3 - this->day_start_total_) * 1000.0f;
-    if (daily_liters >= 0) {
-      this->daily_consumption_sensor_->publish_state(daily_liters);
-      ESP_LOGD(TAG, "Daily consumption: %.1f L", daily_liters);
-    }
   }
 
   // Publish last update time

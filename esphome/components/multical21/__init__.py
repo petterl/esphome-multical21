@@ -1,3 +1,8 @@
+# Multical21 ESPHome Component
+# Based on work by:
+#   Patrik Thalin - https://github.com/pthalin/esp32-multical21
+#   Chester - https://github.com/chester4444/esp-multical21
+
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import pins

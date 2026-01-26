@@ -80,7 +80,7 @@ multical21:
   key: ${meter_key}
 
 sensor:
-  # Total water consumption
+  # Water meter sensors
   - platform: multical21
     multical21_id: water_meter
     total_consumption:
@@ -95,6 +95,9 @@ sensor:
     ambient_temperature:
       name: "Ambient Temperature"
       icon: "mdi:thermometer"
+    current_flow:
+      name: "Current Water Flow"
+      icon: "mdi:water-pump"
 
   # WiFi signal strength
   - platform: wifi_signal

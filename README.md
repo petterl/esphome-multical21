@@ -62,9 +62,22 @@ The following entities are created automatically:
 - **Month Start Value** - Billing period start value in m³
 - **Water Temperature** - Flow temperature in °C
 - **Ambient Temperature** - Room temperature in °C
+- **Current Flow** - Flow rate in L/h
 - Plus WiFi signal, uptime, and diagnostic sensors
 
-Donation using [Ko-Fi](https://ko-fi.com/patriksretrotech) or [PayPal](https://www.paypal.com/donate/?business=UCTJFD6L7UYFL&no_recurring=0&item_name=Please+support+me%21&currency_code=SEK) are highly appreciated!
+For daily/weekly/monthly tracking, use Home Assistant's [utility_meter](https://www.home-assistant.io/integrations/utility_meter/):
 
-This is a based on [chester4444/esp-multical21](https://github.com/chester4444/esp-multical21).
-Thanks to chester4444for his effort.
+```yaml
+utility_meter:
+  daily_water:
+    source: sensor.water_total
+    cycle: daily
+```
+
+### Credits
+
+Based on work by:
+- [Patrik Thalin](https://github.com/pthalin/esp32-multical21) - Original ESP32 implementation
+- [Chester](https://github.com/chester4444/esp-multical21) - wM-Bus protocol implementation
+
+Donations using [Ko-Fi](https://ko-fi.com/patriksretrotech) or [PayPal](https://www.paypal.com/donate/?business=UCTJFD6L7UYFL&no_recurring=0&item_name=Please+support+me%21&currency_code=SEK) are highly appreciated!

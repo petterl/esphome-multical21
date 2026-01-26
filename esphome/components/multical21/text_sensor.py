@@ -1,3 +1,8 @@
+# Multical21 ESPHome Component - Text Sensor Platform
+# Based on work by:
+#   Peter Thalin - https://github.com/pthalin/esp32-multical21
+#   Chester - https://github.com/chester4444/esp-multical21
+
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import text_sensor
