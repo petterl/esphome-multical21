@@ -6,6 +6,7 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 #include <vector>
+#include <mbedtls/aes.h>
 
 namespace esphome {
 namespace multical21 {
@@ -119,8 +120,7 @@ class Multical21Component : public PollingComponent,
   bool decrypt_frame(const uint8_t *payload, uint8_t length);
   void parse_meter_data(const uint8_t *data, uint8_t length);
 
-  // AES-128 CTR decryption
-  void aes_encrypt_block(const uint8_t *input, uint8_t *output);
+  // AES-128 CTR decryption (using mbedtls)
   void aes_ctr_decrypt(const uint8_t *cipher, uint8_t *plain, uint8_t length, const uint8_t *iv);
 
   // CRC calculation
@@ -133,7 +133,7 @@ class Multical21Component : public PollingComponent,
 
   uint8_t meter_id_[4]{0};
   uint8_t aes_key_[16]{0};
-  uint8_t expanded_key_[176]{0};  // AES-128 expanded key (11 * 16 bytes)
+  mbedtls_aes_context aes_ctx_;  // mbedtls AES context
 
   // Sensors
   sensor::Sensor *total_consumption_sensor_{nullptr};
