@@ -11,8 +11,7 @@ static const char *const TAG = "multical21";
 void Multical21Component::setup() {
   ESP_LOGCONFIG(TAG, "Setting up Multical21...");
 
-  // Initialize mbedtls AES context
-  mbedtls_aes_init(&this->aes_ctx_);
+  // Note: mbedtls AES context is initialized in set_key() which is called before setup()
 
   // Setup GDO0 pin
   if (this->gdo0_pin_ != nullptr) {
