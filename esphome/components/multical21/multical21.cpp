@@ -69,12 +69,19 @@ void Multical21Component::loop() {
     return;
   }
 
-  // Check GDO0 for packet available (falling edge indicates sync word detected)
-  if (this->gdo0_pin_ != nullptr && !this->gdo0_pin_->digital_read()) {
-    // Try to receive frame
-    if (this->receive_frame()) {
-      ESP_LOGD(TAG, "Valid frame received from meter");
+  // Check GDO0 for falling edge (HIGH->LOW transition indicates sync word detected)
+  if (this->gdo0_pin_ != nullptr) {
+    bool current_gdo0 = this->gdo0_pin_->digital_read();
+
+    // Detect falling edge: was HIGH, now LOW
+    if (this->last_gdo0_state_ && !current_gdo0) {
+      // Try to receive frame
+      if (this->receive_frame()) {
+        ESP_LOGD(TAG, "Valid frame received from meter");
+      }
     }
+
+    this->last_gdo0_state_ = current_gdo0;
   }
 }
 
@@ -334,11 +341,17 @@ bool Multical21Component::receive_frame() {
   // Restart receiver
   this->start_receiver();
 
-  // Log raw frame
-  ESP_LOGD(TAG, "Received frame (%d bytes)", length);
+  // Log raw frame with hex dump (like old DEBUG_PRINTF)
+  char hex_buf[MAX_FRAME_LENGTH * 3 + 1];
+  for (uint8_t i = 0; i < length && i < MAX_FRAME_LENGTH; i++) {
+    snprintf(&hex_buf[i * 2], 3, "%02x", this->frame_buffer_[i]);
+  }
+  hex_buf[length * 2] = '\0';
+  ESP_LOGD(TAG, "Payload (%d bytes): %s", length, hex_buf);
 
   // Check meter ID
   if (!this->check_meter_id(this->frame_buffer_)) {
+    ESP_LOGD(TAG, "Meter ID mismatch");
     return false;
   }
 
@@ -384,6 +397,14 @@ bool Multical21Component::decrypt_frame(const uint8_t *payload, uint8_t length) 
 
   // Decrypt using AES-128 CTR mode
   this->aes_ctr_decrypt(&payload[16], this->plaintext_, cipher_length, iv);
+
+  // Log decrypted data (like old DEBUG_PRINTF)
+  char hex_buf[MAX_FRAME_LENGTH * 2 + 1];
+  for (uint8_t i = 0; i < cipher_length && i < MAX_FRAME_LENGTH; i++) {
+    snprintf(&hex_buf[i * 2], 3, "%02x", this->plaintext_[i]);
+  }
+  hex_buf[cipher_length * 2] = '\0';
+  ESP_LOGD(TAG, "Decrypted (%d bytes): %s", cipher_length, hex_buf);
 
   // Parse decrypted data
   this->parse_meter_data(this->plaintext_, cipher_length);

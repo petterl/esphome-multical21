@@ -145,6 +145,7 @@ class Multical21Component : public PollingComponent,
   // State
   volatile bool packet_available_{false};
   bool cc1101_initialized_{false};
+  bool last_gdo0_state_{true};  // Track GDO0 for edge detection (starts HIGH)
   uint8_t frame_buffer_[MAX_FRAME_LENGTH]{0};
   uint8_t plaintext_[MAX_FRAME_LENGTH]{0};
 
