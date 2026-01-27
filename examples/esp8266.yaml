@@ -1,14 +1,14 @@
 # ESPHome configuration for Kamstrup Multical 21 Water Meter Reader
-# Uses CC1101 radio module to receive wM-Bus Mode C1 transmissions
+# ESP8266 Version (D1 Mini / NodeMCU / ESP-12)
 #
-# Hardware connections for ESP32-C3 Super Mini:
+# Hardware connections for ESP8266 (D1 Mini pin names):
 #   CC1101 VCC  -> 3V3
 #   CC1101 GND  -> GND
-#   CC1101 CSN  -> GPIO 7
-#   CC1101 MOSI -> GPIO 6
-#   CC1101 MISO -> GPIO 5
-#   CC1101 SCK  -> GPIO 4
-#   CC1101 GDO0 -> GPIO 10
+#   CC1101 CSN  -> GPIO 15 (D8)
+#   CC1101 MOSI -> GPIO 13 (D7)
+#   CC1101 MISO -> GPIO 12 (D6)
+#   CC1101 SCK  -> GPIO 14 (D5)
+#   CC1101 GDO0 -> GPIO 4  (D2)
 
 substitutions:
   device_name: watermeter
@@ -21,14 +21,10 @@ substitutions:
 esphome:
   name: ${device_name}
   friendly_name: ${friendly_name}
-  platformio_options:
-    board_build.flash_mode: dio
 
-esp32:
-  board: esp32-c3-devkitm-1
-  variant: esp32c3
+esp8266:
+  board: d1_mini  # Change to: nodemcuv2, esp12e, etc. for your board
   framework:
-    type: esp-idf
     version: recommended
 
 # Enable logging
@@ -55,33 +51,30 @@ wifi:
 
 captive_portal:
 
-# Status LED
+# Status LED (D1 Mini built-in LED on GPIO2)
 status_led:
   pin:
-    number: GPIO8
+    number: GPIO2
     inverted: true
 
 # SPI bus for CC1101
 spi:
   id: spi_bus
-  clk_pin: GPIO4
-  mosi_pin: GPIO6
-  miso_pin: GPIO5
+  clk_pin: GPIO14   # D5
+  mosi_pin: GPIO13  # D7
+  miso_pin: GPIO12  # D6
 
 # External custom components
 external_components:
-  - source:
-      type: local
-      path: components
-  # - source: github://petterl/esp32-multical21@master
-  #   components: [multical21]
+  - source: github://petterl/esp32-multical21@master
+    components: [multical21]
 
 # Multical21 water meter sensor
 multical21:
   id: water_meter
   spi_id: spi_bus
-  cs_pin: GPIO7
-  gdo0_pin: GPIO10
+  cs_pin: GPIO15    # D8
+  gdo0_pin: GPIO4   # D2
   meter_id: ${meter_id}
   key: ${meter_key}
 

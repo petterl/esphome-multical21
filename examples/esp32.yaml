@@ -1,30 +1,31 @@
 # ESPHome configuration for Kamstrup Multical 21 Water Meter Reader
-# ESP8266 Version (D1 Mini / NodeMCU / ESP-12)
+# Standard ESP32 variant
 #
-# Hardware connections for ESP8266 (D1 Mini pin names):
+# Hardware connections for Standard ESP32:
 #   CC1101 VCC  -> 3V3
 #   CC1101 GND  -> GND
-#   CC1101 CSN  -> GPIO 15 (D8)
-#   CC1101 MOSI -> GPIO 13 (D7)
-#   CC1101 MISO -> GPIO 12 (D6)
-#   CC1101 SCK  -> GPIO 14 (D5)
-#   CC1101 GDO0 -> GPIO 4  (D2)
+#   CC1101 CSN  -> GPIO 4
+#   CC1101 MOSI -> GPIO 23
+#   CC1101 MISO -> GPIO 19
+#   CC1101 SCK  -> GPIO 18
+#   CC1101 GDO0 -> GPIO 32
 
 substitutions:
   device_name: watermeter
   friendly_name: "Water Meter"
-  # Get meter_id from the sticker on your meter (8 hex chars)
-  meter_id: !secret multical21_meter_id
-  # Get encryption key from your water provider (32 hex chars)
-  meter_key: !secret multical21_meter_key
+  # Meter ID (4 bytes, hex format without 0x prefix, e.g., "12345678")
+  meter_id: "00000000"
+  # AES-128 decryption key (32 hex characters, obtain from water provider)
+  meter_key: "00000000000000000000000000000000"
 
 esphome:
   name: ${device_name}
   friendly_name: ${friendly_name}
 
-esp8266:
-  board: d1_mini  # Change to: nodemcuv2, esp12e, etc. for your board
+esp32:
+  board: esp32dev
   framework:
+    type: esp-idf
     version: recommended
 
 # Enable logging
@@ -51,31 +52,26 @@ wifi:
 
 captive_portal:
 
-# Status LED (D1 Mini built-in LED on GPIO2)
+# Status LED
 status_led:
-  pin:
-    number: GPIO2
-    inverted: true
+  pin: GPIO2
 
 # SPI bus for CC1101
 spi:
-  id: spi_bus
-  clk_pin: GPIO14   # D5
-  mosi_pin: GPIO13  # D7
-  miso_pin: GPIO12  # D6
+  clk_pin: GPIO18
+  mosi_pin: GPIO23
+  miso_pin: GPIO19
 
 # External custom components
 external_components:
-  - source:
-      type: local
-      path: components
+  - source: github://petterl/esp32-multical21@master
+    components: [multical21]
 
 # Multical21 water meter sensor
 multical21:
   id: water_meter
-  spi_id: spi_bus
-  cs_pin: GPIO15    # D8
-  gdo0_pin: GPIO4   # D2
+  cs_pin: GPIO4
+  gdo0_pin: GPIO32
   meter_id: ${meter_id}
   key: ${meter_key}
 

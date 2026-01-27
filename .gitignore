@@ -1,1 +1,18 @@
+# ESPHome build artifacts
+.esphome/
 
+# Secrets (contains WiFi passwords, API keys, etc.)
+secrets.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+
+# IDE
+.vscode/
+.idea/
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
