@@ -1,4 +1,5 @@
 # ESPHome configuration for Kamstrup Multical 21 Water Meter Reader
+# Uses CC1101 radio module to receive wM-Bus Mode C1 transmissions
 # Standard ESP32 variant
 #
 # Hardware connections for Standard ESP32:
@@ -13,10 +14,10 @@
 substitutions:
   device_name: watermeter
   friendly_name: "Water Meter"
-  # Meter ID (4 bytes, hex format without 0x prefix, e.g., "12345678")
-  meter_id: "00000000"
-  # AES-128 decryption key (32 hex characters, obtain from water provider)
-  meter_key: "00000000000000000000000000000000"
+  # Get meter_id from the sticker on your meter (8 hex chars)
+  meter_id: !secret multical21_meter_id
+  # Get encryption key from your water provider (32 hex chars)
+  meter_key: !secret multical21_meter_key
 
 esphome:
   name: ${device_name}
