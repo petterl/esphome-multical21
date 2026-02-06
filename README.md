@@ -66,6 +66,19 @@ external_components:
 
 Then configure the SPI bus and component for your board. See [Example Configurations](#example-configurations) below.
 
+### Pinning a Version
+
+To lock to a specific release and prevent automatic updates, use a version tag with `refresh: never`:
+
+```yaml
+external_components:
+  - source: github://petterl/esp32-multical21@v1.0.0
+    components: [multical21]
+    refresh: never
+```
+
+See [Releases](https://github.com/petterl/esp32-multical21/releases) for available versions and the [CHANGELOG](CHANGELOG.md) for details.
+
 ## Configuration Reference
 
 ### Component (`multical21:`)

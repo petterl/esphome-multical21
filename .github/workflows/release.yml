@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pytest flake8 yamllint
+
+      - name: Lint Python
+        run: flake8 components/ tests/ --max-line-length 120
+
+      - name: Lint YAML examples
+        run: 'yamllint -d "{extends: relaxed, rules: {line-length: disable, truthy: disable}}" examples/'
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pytest
+
+      - name: Run tests
+        run: pytest tests/ -v
+
+  release:
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify version matches code
+        run: |
+          CODE_VERSION=$(grep -oP 'VERSION = "\K[^"]+' components/multical21/multical21.h)
+          TAG_VERSION="${{ steps.version.outputs.version }}"
+          if [ "$CODE_VERSION" != "$TAG_VERSION" ]; then
+            echo "ERROR: Tag version ($TAG_VERSION) does not match code version ($CODE_VERSION)"
+            echo "Update VERSION in components/multical21/multical21.h before tagging."
+            exit 1
+          fi
+
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          NOTES=$(awk "/^## \[${VERSION}\]/{found=1; next} /^## \[/{if(found) exit} found{print}" CHANGELOG.md)
+          echo "notes<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$NOTES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: v${{ steps.version.outputs.version }}
+          body: |
+            ${{ steps.changelog.outputs.notes }}
+
+            ---
+            **Installation:**
+            ```yaml
+            external_components:
+              - source: github://petterl/esp32-multical21@${{ github.ref_name }}
+                components: [multical21]
+                refresh: never
+            ```
+
+            See the full [CHANGELOG](https://github.com/petterl/esp32-multical21/blob/master/CHANGELOG.md) for details.
+          draft: false
+          prerelease: false

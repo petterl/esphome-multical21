@@ -16,7 +16,7 @@ namespace multical21 {
 static const char *const TAG = "multical21";
 
 void Multical21Component::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up Multical21...");
+  ESP_LOGCONFIG(TAG, "Setting up Multical21 v%s...", VERSION);
 
   // Note: mbedtls AES context is initialized in set_key() which is called before setup()
 
@@ -84,6 +84,7 @@ void Multical21Component::update() {
 
 void Multical21Component::dump_config() {
   ESP_LOGCONFIG(TAG, "Multical21:");
+  ESP_LOGCONFIG(TAG, "  Version: %s", VERSION);
   LOG_PIN("  GDO0 Pin: ", this->gdo0_pin_);
   ESP_LOGCONFIG(TAG, "  Meter ID: %02X%02X%02X%02X", this->meter_id_[0], this->meter_id_[1], this->meter_id_[2],
                 this->meter_id_[3]);

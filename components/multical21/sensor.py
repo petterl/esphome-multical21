@@ -7,7 +7,6 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import sensor
 from esphome.const import (
-    CONF_ID,
     DEVICE_CLASS_WATER,
     DEVICE_CLASS_TEMPERATURE,
     ENTITY_CATEGORY_DIAGNOSTIC,
@@ -18,7 +17,7 @@ from esphome.const import (
     UNIT_CUBIC_METER,
     UNIT_PERCENT,
 )
-from . import multical21_ns, Multical21Component
+from . import Multical21Component
 
 CONF_MULTICAL21_ID = "multical21_id"
 CONF_TOTAL_CONSUMPTION = "total_consumption"

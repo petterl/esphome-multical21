@@ -6,8 +6,8 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import text_sensor
-from esphome.const import CONF_ID, ENTITY_CATEGORY_DIAGNOSTIC
-from . import multical21_ns, Multical21Component
+from esphome.const import ENTITY_CATEGORY_DIAGNOSTIC
+from . import Multical21Component
 
 CONF_MULTICAL21_ID = "multical21_id"
 CONF_LAST_UPDATE = "last_update"
