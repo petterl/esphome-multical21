@@ -4,6 +4,8 @@
 
 An ESPHome external component for wirelessly reading Kamstrup Multical 21 water meters using a CC1101 radio module.
 
+<img height="250" src="images/ttgo.jpg"><img height="250" src="images/ttgo_with_antenna.jpg">
+
 ## Features
 
 - Native ESPHome integration with Home Assistant
@@ -39,8 +41,8 @@ multical21:
   id: water_meter
   cs_pin: GPIO7
   gdo0_pin: GPIO10
-  meter_id: "12345678"        # Your meter ID (8 hex chars)
-  key: "00112233445566778899AABBCCDDEEFF"  # AES key from water utility
+  meter_id: "12345678" # Your meter ID (8 hex chars)
+  key: "00112233445566778899AABBCCDDEEFF" # AES key from water utility
 
 sensor:
   - platform: multical21
@@ -72,11 +74,11 @@ text_sensor:
 
 Complete example configurations for different boards are available in the [examples/](examples/) folder:
 
-| Board | Example File |
-|-------|--------------|
+| Board               | Example File                            |
+| ------------------- | --------------------------------------- |
 | ESP32-C3 Super Mini | [esp32-c3.yaml](examples/esp32-c3.yaml) |
-| Standard ESP32 | [esp32.yaml](examples/esp32.yaml) |
-| ESP8266 (D1 Mini) | [esp8266.yaml](examples/esp8266.yaml) |
+| Standard ESP32      | [esp32.yaml](examples/esp32.yaml)       |
+| ESP8266 (D1 Mini)   | [esp8266.yaml](examples/esp8266.yaml)   |
 
 Copy the example that matches your board, create a `secrets.yaml` based on [secrets.yaml.example](examples/secrets.yaml.example), and flash it.
 
@@ -91,7 +93,7 @@ Copy the example that matches your board, create a `secrets.yaml` based on [secr
 ### Wiring (ESP32-C3 Super Mini)
 
 | CC1101 | ESP32-C3 |
-|--------|----------|
+| ------ | -------- |
 | VCC    | 3V3      |
 | GND    | GND      |
 | CSN    | GPIO 7   |
@@ -101,7 +103,7 @@ Copy the example that matches your board, create a `secrets.yaml` based on [secr
 | GDO0   | GPIO 10  |
 | GD2    | NC       |
 
-<img height="300" src="images/esp32_c3_mini.jpg"> <img height="300" src="images/esp32_c3_mini_pinout.jpg">
+<img height="300" src="images/esp32_c3_mini_pinout.jpg">
 
 See [E01-M11010_PINOUT.md](E01-M11010_PINOUT.md) for detailed CC1101 module pinout and wiring for other boards.
 
@@ -118,6 +120,7 @@ The component automatically creates entities in Home Assistant:
 ### Energy Dashboard
 
 To add to the Energy Dashboard:
+
 1. Go to **Settings** → **Dashboards** → **Energy**
 2. Click **Add Water Source**
 3. Select **Total Water Consumption** sensor
@@ -139,34 +142,38 @@ utility_meter:
 ## Troubleshooting
 
 ### No readings received
+
 - Verify your meter ID matches your physical meter
 - Check that you have the correct AES encryption key
 - Ensure wiring is correct, especially SPI connections
 - Check debug logs for CC1101 initialization errors
 
 ### CC1101 not responding
+
 - Verify 3.3V power supply (NOT 5V!)
 - Check SPI wiring (MOSI, MISO, SCK, CS)
 - Try adding a 100nF capacitor between VCC and GND
 
 ### Weak signal
+
 - Position the device closer to the water meter
 - Use a proper 868 MHz antenna if your module has a connector
 
 ## Technical Details
 
-| Parameter | Value |
-|-----------|-------|
-| Protocol | wM-Bus Mode C1 |
-| Frequency | 868.95 MHz |
-| Modulation | 2-GFSK |
-| Data Rate | ~103 kbps |
-| Encryption | AES-128 CTR |
-| CRC | EN13757 |
+| Parameter  | Value          |
+| ---------- | -------------- |
+| Protocol   | wM-Bus Mode C1 |
+| Frequency  | 868.95 MHz     |
+| Modulation | 2-GFSK         |
+| Data Rate  | ~103 kbps      |
+| Encryption | AES-128 CTR    |
+| CRC        | EN13757        |
 
 ## Credits
 
 Based on work by:
+
 - [Patrik Thalin](https://github.com/pthalin/esp32-multical21) - Original ESP32 implementation
 - [Chester](https://github.com/chester4444/esp-multical21) - wM-Bus protocol implementation
 

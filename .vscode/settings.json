@@ -1,11 +1,18 @@
 {
   "cSpell.words": [
     "esphome",
+    "GFSK",
+    "hotspot",
     "Kamstrup",
+    "kbps",
     "MOSI",
     "multical",
     "Patrik",
+    "petterl",
     "pinout",
-    "Thalin"
-  ]
+    "Thalin",
+    "ttgo",
+    "watermeter"
+  ],
+  "yaml.customTags": ["!secret scalar", "!include scalar", "!lambda scalar"]
 }
