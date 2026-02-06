@@ -63,7 +63,10 @@ void Multical21Component::loop() {
 }
 
 void Multical21Component::update() {
-  // Values are published when received in loop(), nothing to do here
+  if (this->frames_received_ > 0 || this->crc_errors_ > 0 || this->decrypt_errors_ > 0) {
+    ESP_LOGD(TAG, "Stats - frames: %u, CRC errors: %u, decrypt errors: %u, parse errors: %u",
+             this->frames_received_, this->crc_errors_, this->decrypt_errors_, this->parse_errors_);
+  }
 }
 
 void Multical21Component::dump_config() {
@@ -76,6 +79,10 @@ void Multical21Component::dump_config() {
   } else {
     ESP_LOGCONFIG(TAG, "  CC1101: NOT initialized");
   }
+  ESP_LOGCONFIG(TAG, "  Frames received: %u", this->frames_received_);
+  ESP_LOGCONFIG(TAG, "  CRC errors: %u", this->crc_errors_);
+  ESP_LOGCONFIG(TAG, "  Decrypt errors: %u", this->decrypt_errors_);
+  ESP_LOGCONFIG(TAG, "  Parse errors: %u", this->parse_errors_);
 }
 
 void Multical21Component::set_meter_id(const std::string &meter_id) {
@@ -94,8 +101,7 @@ void Multical21Component::set_key(const std::string &key) {
     mbedtls_aes_init(&this->aes_ctx_);
     mbedtls_aes_setkey_enc(&this->aes_ctx_, this->aes_key_, 128);
 
-    // Log key for debugging
-    ESP_LOGI(TAG, "AES key set: %02X%02X%02X%02X...%02X%02X%02X%02X",
+    ESP_LOGD(TAG, "AES key set (first/last 4 bytes): %02X%02X%02X%02X...%02X%02X%02X%02X",
              this->aes_key_[0], this->aes_key_[1], this->aes_key_[2], this->aes_key_[3],
              this->aes_key_[12], this->aes_key_[13], this->aes_key_[14], this->aes_key_[15]);
   }
@@ -306,6 +312,7 @@ bool Multical21Component::receive_frame() {
     return false;
   }
 
+  this->frames_received_++;
   return this->decrypt_frame(this->frame_buffer_, length);
 }
 
@@ -324,12 +331,16 @@ bool Multical21Component::check_meter_id(const uint8_t *payload) {
 // Frame structure: [header 16 bytes][encrypted data][CRC 2 bytes]
 bool Multical21Component::decrypt_frame(const uint8_t *payload, uint8_t length) {
   if (length < 18) {
+    ESP_LOGW(TAG, "Frame too short for decryption: %d bytes", length);
+    this->decrypt_errors_++;
     return false;
   }
 
   // Cipher length = total - 16 byte header - 2 byte CRC
   uint8_t cipher_length = length - 18;
   if (cipher_length == 0 || cipher_length > MAX_FRAME_LENGTH - 16) {
+    ESP_LOGW(TAG, "Invalid cipher length: %d (frame length: %d)", cipher_length, length);
+    this->decrypt_errors_++;
     return false;
   }
 
@@ -428,26 +439,35 @@ uint16_t Multical21Component::crc16_en13757(const uint8_t *data, size_t length) 
 
 void Multical21Component::parse_meter_data(const uint8_t *data, uint8_t length) {
   if (length < 3) {
+    this->parse_errors_++;
     return;
   }
 
-  // Determine frame type and positions
-  int pos_total, pos_target, pos_flow_temp, pos_ambient_temp;
+  // Determine frame type and field positions
+  uint8_t pos_total, pos_target, pos_flow_temp, pos_ambient_temp, min_length;
 
-  if (data[2] == 0x79) {
-    // Compact frame
-    pos_total = 9;
-    pos_target = 13;
-    pos_flow_temp = 17;
-    pos_ambient_temp = 18;
-  } else if (data[2] == 0x78) {
-    // Long frame
-    pos_total = 10;
-    pos_target = 16;
-    pos_flow_temp = 23;
-    pos_ambient_temp = 29;
+  if (data[2] == COMPACT_FRAME_TYPE) {
+    pos_total = COMPACT_POS_TOTAL;
+    pos_target = COMPACT_POS_TARGET;
+    pos_flow_temp = COMPACT_POS_FLOW_TEMP;
+    pos_ambient_temp = COMPACT_POS_AMBIENT_TEMP;
+    min_length = COMPACT_MIN_LENGTH;
+  } else if (data[2] == LONG_FRAME_TYPE) {
+    pos_total = LONG_POS_TOTAL;
+    pos_target = LONG_POS_TARGET;
+    pos_flow_temp = LONG_POS_FLOW_TEMP;
+    pos_ambient_temp = LONG_POS_AMBIENT_TEMP;
+    min_length = LONG_MIN_LENGTH;
   } else {
     ESP_LOGW(TAG, "Unknown frame type: 0x%02X", data[2]);
+    this->parse_errors_++;
+    return;
+  }
+
+  // Validate frame length for the detected type
+  if (length < min_length) {
+    ESP_LOGW(TAG, "Frame too short for type 0x%02X: got %d, need %d", data[2], length, min_length);
+    this->parse_errors_++;
     return;
   }
 
@@ -456,7 +476,8 @@ void Multical21Component::parse_meter_data(const uint8_t *data, uint8_t length) 
   uint16_t read_crc = (data[1] << 8) | data[0];
 
   if (calc_crc != read_crc) {
-    ESP_LOGW(TAG, "CRC mismatch");
+    ESP_LOGW(TAG, "CRC mismatch: expected 0x%04X, got 0x%04X", calc_crc, read_crc);
+    this->crc_errors_++;
     return;
   }
 
@@ -471,8 +492,9 @@ void Multical21Component::parse_meter_data(const uint8_t *data, uint8_t length) 
   uint8_t flow_temp = data[pos_flow_temp];
   uint8_t ambient_temp = data[pos_ambient_temp];
 
-  ESP_LOGI(TAG, "Total: %.3f m³, Month start: %.3f m³, Water temp: %d°C, Ambient temp: %d°C", total_m3, target_m3,
-           flow_temp, ambient_temp);
+  this->reading_count_++;
+  ESP_LOGI(TAG, "Reading #%u - Total: %.3f m3, Month start: %.3f m3, Water temp: %d C, Ambient temp: %d C",
+           this->reading_count_, total_m3, target_m3, flow_temp, ambient_temp);
 
   // Store values
   this->last_total_ = total_m3;
@@ -506,21 +528,27 @@ void Multical21Component::parse_meter_data(const uint8_t *data, uint8_t length) 
       if (delta_time_hours > 0.001f && delta_total_liters >= 0) {
         float flow_lph = delta_total_liters / delta_time_hours;
         this->current_flow_sensor_->publish_state(flow_lph);
+      } else {
+        ESP_LOGD(TAG, "Flow calculation skipped: delta_time=%.4fh, delta_liters=%.1f",
+                 delta_time_hours, delta_total_liters);
       }
+    } else {
+      ESP_LOGD(TAG, "Flow calculation waiting for second reading");
     }
     this->prev_total_ = total_m3;
     this->prev_reading_time_ = current_time;
   }
 
-  // Publish last update time
+  // Publish last update
   if (this->last_update_sensor_ != nullptr) {
-    // Simple timestamp using millis
     uint32_t uptime_sec = millis() / 1000;
     uint32_t hours = uptime_sec / 3600;
     uint32_t minutes = (uptime_sec % 3600) / 60;
     uint32_t seconds = uptime_sec % 60;
-    char buffer[32];
-    snprintf(buffer, sizeof(buffer), "Uptime: %02lu:%02lu:%02lu", (unsigned long)hours, (unsigned long)minutes, (unsigned long)seconds);
+    char buffer[48];
+    snprintf(buffer, sizeof(buffer), "#%lu (uptime: %02lu:%02lu:%02lu)",
+             (unsigned long) this->reading_count_,
+             (unsigned long) hours, (unsigned long) minutes, (unsigned long) seconds);
     this->last_update_sensor_->publish_state(buffer);
   }
 }

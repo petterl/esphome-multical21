@@ -90,6 +90,22 @@ static const uint8_t MAX_FRAME_LENGTH = 64;
 // CRC polynomial for EN13757
 static const uint16_t CRC16_EN13757_POLY = 0x3D65;
 
+// Compact frame (CI=0x79) field positions within decrypted payload
+static const uint8_t COMPACT_FRAME_TYPE = 0x79;
+static const uint8_t COMPACT_POS_TOTAL = 9;
+static const uint8_t COMPACT_POS_TARGET = 13;
+static const uint8_t COMPACT_POS_FLOW_TEMP = 17;
+static const uint8_t COMPACT_POS_AMBIENT_TEMP = 18;
+static const uint8_t COMPACT_MIN_LENGTH = 19;
+
+// Long frame (CI=0x78) field positions within decrypted payload
+static const uint8_t LONG_FRAME_TYPE = 0x78;
+static const uint8_t LONG_POS_TOTAL = 10;
+static const uint8_t LONG_POS_TARGET = 16;
+static const uint8_t LONG_POS_FLOW_TEMP = 23;
+static const uint8_t LONG_POS_AMBIENT_TEMP = 29;
+static const uint8_t LONG_MIN_LENGTH = 30;
+
 class Multical21Component : public PollingComponent,
                             public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARITY_LOW,
                                                    spi::CLOCK_PHASE_LEADING, spi::DATA_RATE_1MHZ> {
@@ -154,7 +170,6 @@ class Multical21Component : public PollingComponent,
   // State
   volatile bool packet_available_{false};
   bool cc1101_initialized_{false};
-  bool last_gdo0_state_{true};  // Track GDO0 for edge detection (starts HIGH)
   uint8_t frame_buffer_[MAX_FRAME_LENGTH]{0};
   uint8_t plaintext_[MAX_FRAME_LENGTH]{0};
 
@@ -167,6 +182,13 @@ class Multical21Component : public PollingComponent,
   // Flow calculation state
   float prev_total_{0};            // Previous total for flow calculation
   uint32_t prev_reading_time_{0};  // Time of previous reading (millis)
+
+  // Diagnostics
+  uint32_t frames_received_{0};
+  uint32_t crc_errors_{0};
+  uint32_t decrypt_errors_{0};
+  uint32_t parse_errors_{0};
+  uint32_t reading_count_{0};
 };
 
 }  // namespace multical21
