@@ -305,3 +305,64 @@ class TestFrameParsing:
         raw = 123456  # liters
         m3 = raw / 1000.0
         assert abs(m3 - 123.456) < 0.0001
+
+
+# ---------------------------------------------------------------------------
+# Input validation – mirrors the validate_hex_str logic from __init__.py
+# ---------------------------------------------------------------------------
+
+def validate_hex_str(length: int, name: str, value: str) -> str:
+    """Python mirror of the ESPHome config validator in __init__.py."""
+    value = str(value).strip()
+    if len(value) != length:
+        raise ValueError(
+            f"{name} must be exactly {length} hex characters, got {len(value)}"
+        )
+    try:
+        int(value, 16)
+    except ValueError:
+        raise ValueError(
+            f"{name} must contain only hex characters (0-9, a-f, A-F)"
+        )
+    return value
+
+
+class TestInputValidation:
+    """Verify meter_id and key validation catches bad input."""
+
+    def test_valid_meter_id(self):
+        assert validate_hex_str(8, "meter_id", "1A2B3C4D") == "1A2B3C4D"
+
+    def test_valid_meter_id_lowercase(self):
+        assert validate_hex_str(8, "meter_id", "aabbccdd") == "aabbccdd"
+
+    def test_valid_key(self):
+        key = "0011223344556677AABBCCDDEEFF0011"
+        assert validate_hex_str(32, "key", key) == key
+
+    def test_meter_id_too_short(self):
+        with pytest.raises(ValueError, match="exactly 8 hex characters"):
+            validate_hex_str(8, "meter_id", "1234")
+
+    def test_meter_id_too_long(self):
+        with pytest.raises(ValueError, match="exactly 8 hex characters"):
+            validate_hex_str(8, "meter_id", "1234567890")
+
+    def test_key_too_short(self):
+        with pytest.raises(ValueError, match="exactly 32 hex characters"):
+            validate_hex_str(32, "key", "00112233")
+
+    def test_meter_id_non_hex(self):
+        with pytest.raises(ValueError, match="only hex characters"):
+            validate_hex_str(8, "meter_id", "1234GHIJ")
+
+    def test_key_non_hex(self):
+        with pytest.raises(ValueError, match="only hex characters"):
+            validate_hex_str(32, "key", "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ")
+
+    def test_meter_id_empty(self):
+        with pytest.raises(ValueError, match="exactly 8 hex characters"):
+            validate_hex_str(8, "meter_id", "")
+
+    def test_meter_id_with_spaces_stripped(self):
+        assert validate_hex_str(8, "meter_id", " 1A2B3C4D ") == "1A2B3C4D"

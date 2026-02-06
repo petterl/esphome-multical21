@@ -7,6 +7,15 @@ secrets.yaml
 # Python
 __pycache__/
 *.py[cod]
+.pytest_cache/
+
+# Compiled firmware
+*.bin
+*.elf
+
+# Environment secrets
+.env
+.env.*
 
 # IDE
 .vscode/

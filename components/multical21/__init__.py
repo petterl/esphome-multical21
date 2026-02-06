@@ -7,7 +7,7 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import pins
 from esphome.components import spi
-from esphome.const import CONF_ID, CONF_CS_PIN
+from esphome.const import CONF_ID
 
 DEPENDENCIES = ["spi"]
 AUTO_LOAD = ["sensor", "text_sensor"]
@@ -22,13 +22,38 @@ Multical21Component = multical21_ns.class_(
     "Multical21Component", cg.PollingComponent, spi.SPIDevice
 )
 
+
+def validate_hex_str(length, name):
+    """Validate a hex string has the exact expected length and contains only hex chars."""
+
+    def validator(value):
+        value = cv.string(value).strip()
+        if len(value) != length:
+            raise cv.Invalid(
+                f"{name} must be exactly {length} hex characters, got {len(value)}"
+            )
+        try:
+            int(value, 16)
+        except ValueError:
+            raise cv.Invalid(
+                f"{name} must contain only hex characters (0-9, a-f, A-F)"
+            )
+        return value
+
+    return validator
+
+
 CONFIG_SCHEMA = (
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(Multical21Component),
             cv.Required(CONF_GDO0_PIN): pins.gpio_input_pin_schema,
-            cv.Required(CONF_METER_ID): cv.string,
-            cv.Required(CONF_KEY): cv.string,
+            cv.Required(CONF_METER_ID): validate_hex_str(
+                8, "meter_id"
+            ),
+            cv.Required(CONF_KEY): validate_hex_str(
+                32, "key"
+            ),
         }
     )
     .extend(cv.polling_component_schema("1s"))

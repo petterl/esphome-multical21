@@ -1,5 +1,7 @@
 # ESPHome Kamstrup Multical 21 Water Meter Reader
 
+[![CI](https://github.com/petterl/esp32-multical21/actions/workflows/ci.yml/badge.svg)](https://github.com/petterl/esp32-multical21/actions/workflows/ci.yml)
+
 <img align="right" height="250" src="images/kamstrup_multical21.png">
 
 An ESPHome external component for wirelessly reading Kamstrup Multical 21 water meters using a CC1101 radio module.
@@ -14,10 +16,45 @@ An ESPHome external component for wirelessly reading Kamstrup Multical 21 water 
 - AES-128 decryption (requires key from water utility)
 - CRC validation of received data
 - Wireless reading via wM-Bus Mode C1 (868.95 MHz)
+- Diagnostic sensors for troubleshooting (frame count, CRC errors, signal quality)
+- Input validation with clear error messages
+
+## Quick Start
+
+**1. Add to your ESPHome YAML:**
+
+```yaml
+external_components:
+  - source: github://petterl/esp32-multical21@master
+    components: [multical21]
+
+spi:
+  clk_pin: GPIO4
+  mosi_pin: GPIO6
+  miso_pin: GPIO5
+
+multical21:
+  cs_pin: GPIO7
+  gdo0_pin: GPIO10
+  meter_id: "12345678"
+  key: "00112233445566778899AABBCCDDEEFF"
+
+sensor:
+  - platform: multical21
+    total_consumption:
+      name: "Total Water Consumption"
+    current_flow:
+      name: "Current Water Flow"
+```
+
+**2. Get your credentials:**
+
+- **Meter ID**: 8 hex characters from the sticker on your water meter
+- **AES Key**: 32 hex characters — contact your water utility provider
+
+**3. Flash and go!** The component validates your config at compile time and shows clear errors if the meter ID or key format is wrong.
 
 ## Installation
-
-### 1. Add to your ESPHome configuration
 
 Add the external component to your ESPHome YAML:
 
@@ -27,48 +64,40 @@ external_components:
     components: [multical21]
 ```
 
-### 2. Configure the component
+Then configure the SPI bus and component for your board. See [Example Configurations](#example-configurations) below.
 
-```yaml
-# SPI bus for CC1101
-spi:
-  clk_pin: GPIO4
-  mosi_pin: GPIO6
-  miso_pin: GPIO5
+## Configuration Reference
 
-# Multical21 water meter
-multical21:
-  id: water_meter
-  cs_pin: GPIO7
-  gdo0_pin: GPIO10
-  meter_id: "12345678" # Your meter ID (8 hex chars)
-  key: "00112233445566778899AABBCCDDEEFF" # AES key from water utility
+### Component (`multical21:`)
 
-sensor:
-  - platform: multical21
-    multical21_id: water_meter
-    total_consumption:
-      name: "Total Water Consumption"
-    month_start_value:
-      name: "Month Start Value"
-    water_temperature:
-      name: "Water Temperature"
-    ambient_temperature:
-      name: "Ambient Temperature"
-    current_flow:
-      name: "Current Water Flow"
+| Key               | Type   | Required | Description                                 |
+| ----------------- | ------ | -------- | ------------------------------------------- |
+| `cs_pin`          | pin    | Yes      | SPI chip select pin for CC1101              |
+| `gdo0_pin`        | pin    | Yes      | CC1101 GDO0 interrupt pin                   |
+| `meter_id`        | string | Yes      | 8 hex characters from meter sticker         |
+| `key`             | string | Yes      | 32 hex character AES key from water utility |
+| `update_interval` | time   | No       | Polling interval (default: `1s`)            |
 
-text_sensor:
-  - platform: multical21
-    multical21_id: water_meter
-    last_update:
-      name: "Last Update"
-```
+### Sensors (`sensor:` platform: multical21)
 
-### 3. Get your credentials
+| Key                   | Unit  | Description                         | HA Category |
+| --------------------- | ----- | ----------------------------------- | ----------- |
+| `total_consumption`   | m3    | Total water consumption             | Primary     |
+| `month_start_value`   | m3    | Consumption at billing period start | Primary     |
+| `water_temperature`   | C     | Water temperature                   | Primary     |
+| `ambient_temperature` | C     | Ambient temperature                 | Primary     |
+| `current_flow`        | L/h   | Current flow rate                   | Primary     |
+| `frames_received`     | count | Successfully received frames        | Diagnostic  |
+| `crc_errors`          | count | CRC validation failures             | Diagnostic  |
+| `signal_quality`      | %     | Frame success rate                  | Diagnostic  |
 
-- **Meter ID**: Found on the sticker on your water meter (8 hex characters)
-- **AES Key**: Contact your water utility provider to obtain the encryption key
+### Text Sensors (`text_sensor:` platform: multical21)
+
+| Key           | Description                | HA Category |
+| ------------- | -------------------------- | ----------- |
+| `last_update` | Reading counter and uptime | Diagnostic  |
+
+All sensors are optional — include only the ones you need. Icons are set automatically.
 
 ## Example Configurations
 
@@ -80,7 +109,11 @@ Complete example configurations for different boards are available in the [examp
 | Standard ESP32      | [esp32.yaml](examples/esp32.yaml)       |
 | ESP8266 (D1 Mini)   | [esp8266.yaml](examples/esp8266.yaml)   |
 
-Copy the example that matches your board, create a `secrets.yaml` based on [secrets.yaml.example](examples/secrets.yaml.example), and flash it.
+**To get started:**
+
+1. Copy the example that matches your board
+2. Create a `secrets.yaml` based on [secrets.yaml.example](examples/secrets.yaml.example)
+3. Flash with ESPHome
 
 ## Hardware
 
@@ -143,14 +176,15 @@ utility_meter:
 
 ### No readings received
 
-- Verify your meter ID matches your physical meter
-- Check that you have the correct AES encryption key
+- Verify your meter ID matches your physical meter (8 hex chars, check the sticker)
+- Check that you have the correct AES encryption key (32 hex chars, from your water utility)
 - Ensure wiring is correct, especially SPI connections
 - Check debug logs for CC1101 initialization errors
+- Add diagnostic sensors (`frames_received`, `crc_errors`, `signal_quality`) to see what's happening
 
 ### CC1101 not responding
 
-- Verify 3.3V power supply (NOT 5V!)
+- Verify 3.3V power supply (**NOT 5V!**)
 - Check SPI wiring (MOSI, MISO, SCK, CS)
 - Try adding a 100nF capacitor between VCC and GND
 
@@ -158,6 +192,25 @@ utility_meter:
 
 - Position the device closer to the water meter
 - Use a proper 868 MHz antenna if your module has a connector
+
+### Diagnostic sensors
+
+Add these to your YAML for troubleshooting:
+
+```yaml
+sensor:
+  - platform: multical21
+    frames_received:
+      name: "Frames Received"
+    crc_errors:
+      name: "CRC Errors"
+    signal_quality:
+      name: "Signal Quality"
+```
+
+- **frames_received = 0**: No frames from your meter are being received (check wiring and antenna)
+- **crc_errors increasing**: Frames received but corrupted (check antenna placement, reduce distance)
+- **signal_quality < 80%**: Poor reception (move device closer or improve antenna)
 
 ## Technical Details
 

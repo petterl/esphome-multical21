@@ -7,6 +7,24 @@ on:
     branches: [master]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pytest flake8 yamllint
+
+      - name: Lint Python
+        run: flake8 components/ tests/ --max-line-length 120
+
+      - name: Lint YAML examples
+        run: 'yamllint -d "{extends: relaxed, rules: {line-length: disable, truthy: disable}}" examples/'
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -14,16 +32,10 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install pytest flake8 yamllint
-
-      - name: Lint Python
-        run: flake8 components/ tests/ --max-line-length 120 --ignore E501
-
-      - name: Lint YAML examples
-        run: yamllint -d "{extends: relaxed, rules: {line-length: disable, truthy: disable}}" examples/
+        run: pip install pytest
 
       - name: Run tests
         run: pytest tests/ -v

@@ -126,6 +126,9 @@ class Multical21Component : public PollingComponent,
   void set_ambient_temp_sensor(sensor::Sensor *sensor) { this->ambient_temp_sensor_ = sensor; }
   void set_current_flow_sensor(sensor::Sensor *sensor) { this->current_flow_sensor_ = sensor; }
   void set_last_update_sensor(text_sensor::TextSensor *sensor) { this->last_update_sensor_ = sensor; }
+  void set_frames_received_sensor(sensor::Sensor *sensor) { this->frames_received_sensor_ = sensor; }
+  void set_crc_errors_sensor(sensor::Sensor *sensor) { this->crc_errors_sensor_ = sensor; }
+  void set_signal_quality_sensor(sensor::Sensor *sensor) { this->signal_quality_sensor_ = sensor; }
 
  protected:
   // CC1101 communication
@@ -166,6 +169,9 @@ class Multical21Component : public PollingComponent,
   sensor::Sensor *ambient_temp_sensor_{nullptr};
   sensor::Sensor *current_flow_sensor_{nullptr};
   text_sensor::TextSensor *last_update_sensor_{nullptr};
+  sensor::Sensor *frames_received_sensor_{nullptr};
+  sensor::Sensor *crc_errors_sensor_{nullptr};
+  sensor::Sensor *signal_quality_sensor_{nullptr};
 
   // State
   volatile bool packet_available_{false};

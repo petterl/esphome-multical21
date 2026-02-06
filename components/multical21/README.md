@@ -4,14 +4,19 @@ ESPHome component for reading Kamstrup Multical 21 water meters via CC1101 radio
 
 ## Sensors
 
-| Sensor | Unit | Description |
-|--------|------|-------------|
-| `total_consumption` | m³ | Total water consumption |
-| `month_start_value` | m³ | Consumption at month start |
-| `water_temperature` | °C | Water temperature |
-| `ambient_temperature` | °C | Ambient temperature |
-| `current_flow` | L/h | Current flow rate |
-| `last_update` | text | Last update timestamp |
+| Sensor | Unit | Category | Description |
+|--------|------|----------|-------------|
+| `total_consumption` | m³ | Primary | Total water consumption |
+| `month_start_value` | m³ | Primary | Consumption at month start |
+| `water_temperature` | °C | Primary | Water temperature |
+| `ambient_temperature` | °C | Primary | Ambient temperature |
+| `current_flow` | L/h | Primary | Current flow rate |
+| `last_update` | text | Diagnostic | Reading counter and uptime |
+| `frames_received` | count | Diagnostic | Successfully received frames |
+| `crc_errors` | count | Diagnostic | CRC validation failures |
+| `signal_quality` | % | Diagnostic | Frame success rate |
+
+All sensors are optional. Icons are set automatically.
 
 ## Quick Start
 
@@ -21,15 +26,15 @@ external_components:
     components: [multical21]
 
 spi:
-  clk_pin: GPIO18
-  mosi_pin: GPIO23
-  miso_pin: GPIO19
+  clk_pin: GPIO4
+  mosi_pin: GPIO6
+  miso_pin: GPIO5
 
 multical21:
-  cs_pin: GPIO4
-  gdo0_pin: GPIO32
-  meter_id: "12345678"  # From meter sticker
-  key: "00112233..."    # From water provider
+  cs_pin: GPIO7
+  gdo0_pin: GPIO10
+  meter_id: "12345678"  # 8 hex chars from meter sticker
+  key: "00112233..."    # 32 hex chars from water provider
 
 sensor:
   - platform: multical21
@@ -39,17 +44,21 @@ sensor:
       name: "Water Flow"
 ```
 
+## Input Validation
+
+The component validates `meter_id` (exactly 8 hex characters) and `key` (exactly 32 hex characters) at compile time. Wrong formats produce clear error messages.
+
 ## Wiring
 
-| CC1101 | ESP32 | ESP8266 (D1 Mini) |
-|--------|-------|-------------------|
-| VCC | 3.3V | 3.3V |
-| GND | GND | GND |
-| CSN | GPIO4 | D8 (GPIO15) |
-| MOSI | GPIO23 | D7 (GPIO13) |
-| MISO | GPIO19 | D6 (GPIO12) |
-| SCK | GPIO18 | D5 (GPIO14) |
-| GDO0 | GPIO32 | D2 (GPIO4) |
+| CC1101 | ESP32 | ESP32-C3 | ESP8266 (D1 Mini) |
+|--------|-------|----------|-------------------|
+| VCC | 3.3V | 3.3V | 3.3V |
+| GND | GND | GND | GND |
+| CSN | GPIO4 | GPIO7 | D8 (GPIO15) |
+| MOSI | GPIO23 | GPIO6 | D7 (GPIO13) |
+| MISO | GPIO19 | GPIO5 | D6 (GPIO12) |
+| SCK | GPIO18 | GPIO4 | D5 (GPIO14) |
+| GDO0 | GPIO32 | GPIO10 | D2 (GPIO4) |
 
 ## Daily Tracking
 

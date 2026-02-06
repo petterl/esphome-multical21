@@ -67,6 +67,19 @@ void Multical21Component::update() {
     ESP_LOGD(TAG, "Stats - frames: %u, CRC errors: %u, decrypt errors: %u, parse errors: %u",
              this->frames_received_, this->crc_errors_, this->decrypt_errors_, this->parse_errors_);
   }
+
+  // Publish diagnostic sensors
+  if (this->frames_received_sensor_ != nullptr) {
+    this->frames_received_sensor_->publish_state(this->frames_received_);
+  }
+  if (this->crc_errors_sensor_ != nullptr) {
+    this->crc_errors_sensor_->publish_state(this->crc_errors_);
+  }
+  if (this->signal_quality_sensor_ != nullptr) {
+    uint32_t total = this->frames_received_ + this->crc_errors_ + this->decrypt_errors_;
+    float quality = (total > 0) ? (this->frames_received_ * 100.0f / total) : 0.0f;
+    this->signal_quality_sensor_->publish_state(quality);
+  }
 }
 
 void Multical21Component::dump_config() {

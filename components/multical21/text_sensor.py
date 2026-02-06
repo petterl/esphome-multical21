@@ -6,7 +6,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import text_sensor
-from esphome.const import CONF_ID
+from esphome.const import CONF_ID, ENTITY_CATEGORY_DIAGNOSTIC
 from . import multical21_ns, Multical21Component
 
 CONF_MULTICAL21_ID = "multical21_id"
@@ -17,7 +17,10 @@ DEPENDENCIES = ["multical21"]
 CONFIG_SCHEMA = cv.Schema(
     {
         cv.GenerateID(CONF_MULTICAL21_ID): cv.use_id(Multical21Component),
-        cv.Optional(CONF_LAST_UPDATE): text_sensor.text_sensor_schema(),
+        cv.Optional(CONF_LAST_UPDATE): text_sensor.text_sensor_schema(
+            icon="mdi:clock-outline",
+            entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+        ),
     }
 )
 

@@ -117,19 +117,14 @@ sensor:
     multical21_id: water_meter
     total_consumption:
       name: "Total Water Consumption"
-      icon: "mdi:water"
     month_start_value:
       name: "Month Start Value"
-      icon: "mdi:calendar-month"
     water_temperature:
       name: "Water Temperature"
-      icon: "mdi:thermometer-water"
     ambient_temperature:
       name: "Ambient Temperature"
-      icon: "mdi:thermometer"
     current_flow:
       name: "Current Water Flow"
-      icon: "mdi:water-pump"
 
   # WiFi signal strength
   - platform: wifi_signal
@@ -146,7 +141,6 @@ text_sensor:
     multical21_id: water_meter
     last_update:
       name: "Last Update"
-      icon: "mdi:clock-outline"
 
   # WiFi info
   - platform: wifi_info
