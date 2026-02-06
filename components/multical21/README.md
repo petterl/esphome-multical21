@@ -22,7 +22,7 @@ All sensors are optional. Icons are set automatically.
 
 ```yaml
 external_components:
-  - source: github://petterl/esp32-multical21@master
+  - source: github://petterl/esphome-multical21@master
     components: [multical21]
 
 spi:

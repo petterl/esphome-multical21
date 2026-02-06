@@ -1,6 +1,6 @@
 # ESPHome Kamstrup Multical 21 Water Meter Reader
 
-[![CI](https://github.com/petterl/esp32-multical21/actions/workflows/ci.yml/badge.svg)](https://github.com/petterl/esp32-multical21/actions/workflows/ci.yml)
+[![CI](https://github.com/petterl/esphome-multical21/actions/workflows/ci.yml/badge.svg)](https://github.com/petterl/esphome-multical21/actions/workflows/ci.yml)
 
 <img align="right" height="250" src="images/kamstrup_multical21.png">
 
@@ -25,7 +25,7 @@ An ESPHome external component for wirelessly reading Kamstrup Multical 21 water 
 
 ```yaml
 external_components:
-  - source: github://petterl/esp32-multical21@master
+  - source: github://petterl/esphome-multical21@master
     components: [multical21]
 
 spi:
@@ -60,7 +60,7 @@ Add the external component to your ESPHome YAML:
 
 ```yaml
 external_components:
-  - source: github://petterl/esp32-multical21@master
+  - source: github://petterl/esphome-multical21@master
     components: [multical21]
 ```
 
@@ -72,12 +72,12 @@ To lock to a specific release and prevent automatic updates, use a version tag w
 
 ```yaml
 external_components:
-  - source: github://petterl/esp32-multical21@v1.0.0
+  - source: github://petterl/esphome-multical21@v1.0.1
     components: [multical21]
     refresh: never
 ```
 
-See [Releases](https://github.com/petterl/esp32-multical21/releases) for available versions and the [CHANGELOG](CHANGELOG.md) for details.
+See [Releases](https://github.com/petterl/esphome-multical21/releases) for available versions and the [CHANGELOG](CHANGELOG.md) for details.
 
 ## Configuration Reference
 

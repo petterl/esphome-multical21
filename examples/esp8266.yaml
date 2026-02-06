@@ -95,7 +95,7 @@ spi:
 
 # External custom components
 external_components:
-  - source: github://petterl/esp32-multical21@master
+  - source: github://petterl/esphome-multical21@master
     components: [multical21]
 
 # Multical21 water meter sensor

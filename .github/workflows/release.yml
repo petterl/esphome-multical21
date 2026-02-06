@@ -83,11 +83,11 @@ jobs:
             **Installation:**
             ```yaml
             external_components:
-              - source: github://petterl/esp32-multical21@${{ github.ref_name }}
+              - source: github://petterl/esphome-multical21@${{ github.ref_name }}
                 components: [multical21]
                 refresh: never
             ```
 
-            See the full [CHANGELOG](https://github.com/petterl/esp32-multical21/blob/master/CHANGELOG.md) for details.
+            See the full [CHANGELOG](https://github.com/petterl/esphome-multical21/blob/master/CHANGELOG.md) for details.
           draft: false
           prerelease: false
