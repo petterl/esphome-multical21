@@ -5,6 +5,10 @@
 //   Patrik Thalin - https://github.com/pthalin/esp32-multical21
 //   Chester - https://github.com/chester4444/esp-multical21
 
+extern "C" {
+#include "mbedtls/aes.c"
+}
+
 #include "multical21.h"
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
