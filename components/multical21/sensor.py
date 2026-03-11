@@ -9,6 +9,7 @@ from esphome.components import sensor
 from esphome.const import (
     DEVICE_CLASS_WATER,
     DEVICE_CLASS_TEMPERATURE,
+    DEVICE_CLASS_VOLUME_FLOW_RATE,
     ENTITY_CATEGORY_DIAGNOSTIC,
     ICON_COUNTER,
     STATE_CLASS_TOTAL_INCREASING,
@@ -69,6 +70,7 @@ CONFIG_SCHEMA = cv.Schema(
             unit_of_measurement=UNIT_LITERS_PER_HOUR,
             icon="mdi:water-pump",
             accuracy_decimals=1,
+            device_class=DEVICE_CLASS_VOLUME_FLOW_RATE,
             state_class=STATE_CLASS_MEASUREMENT,
         ),
         cv.Optional(CONF_FRAMES_RECEIVED): sensor.sensor_schema(

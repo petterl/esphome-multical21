@@ -13,7 +13,7 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 #include <vector>
-#include <mbedtls/aes.h>
+#include <psa/crypto.h>
 
 namespace esphome {
 namespace multical21 {
@@ -150,7 +150,7 @@ class Multical21Component : public PollingComponent,
   bool decrypt_frame(const uint8_t *payload, uint8_t length);
   void parse_meter_data(const uint8_t *data, uint8_t length);
 
-  // AES-128 CTR decryption (using mbedtls)
+  // AES-128 CTR decryption (using PSA)
   void aes_ctr_decrypt(const uint8_t *cipher, uint8_t *plain, uint8_t length, const uint8_t *iv);
 
   // CRC calculation
@@ -158,12 +158,13 @@ class Multical21Component : public PollingComponent,
 
   // Utility
   void hex_to_bytes(const std::string &hex, uint8_t *bytes, size_t len);
-
   GPIOPin *gdo0_pin_{nullptr};
 
   uint8_t meter_id_[4]{0};
   uint8_t aes_key_[16]{0};
-  mbedtls_aes_context aes_ctx_;  // mbedtls AES context
+  psa_key_handle_t aes_key_handle_{0};  // PSA key handle for AES key
+  bool aes_key_set_{false};
+  // Note: keys are imported immediately when `set_key()` is called.
 
   // Sensors
   sensor::Sensor *total_consumption_sensor_{nullptr};

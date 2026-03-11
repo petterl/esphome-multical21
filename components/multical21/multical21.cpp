@@ -5,10 +5,6 @@
 //   Patrik Thalin - https://github.com/pthalin/esp32-multical21
 //   Chester - https://github.com/chester4444/esp-multical21
 
-extern "C" {
-#include "mbedtls/aes.c"
-}
-
 #include "multical21.h"
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
@@ -21,16 +17,28 @@ static const char *const TAG = "multical21";
 
 void Multical21Component::setup() {
   ESP_LOGCONFIG(TAG, "Setting up Multical21 v%s...", VERSION);
+  ESP_LOGD(TAG, "setup(): spi_is_ready()=%d", this->spi_is_ready());
 
-  // Note: mbedtls AES context is initialized in set_key() which is called before setup()
+  // Initialize SPI and give it a short window to become ready. Some build
+  // configurations (native ESP-IDF) may initialize hardware later than the
+  // Arduino-based build. Try a small number of attempts and warn if still
+  // not ready.
+  ESP_LOGD(TAG, "Initializing SPI");
+  this->spi_setup();
+  for (int i = 0; i < 3 && !this->spi_is_ready(); i++) {
+    ESP_LOGD(TAG, "spi not ready yet (attempt %d), waiting...", i + 1);
+    delay(20);
+  }
+  if (!this->spi_is_ready()) {
+    ESP_LOGW(TAG, "SPI not ready after setup attempts");
+  }
+
+  // Ensure any runtime SPI state is clean at startup
 
   // Setup GDO0 pin
   if (this->gdo0_pin_ != nullptr) {
     this->gdo0_pin_->setup();
   }
-
-  // Initialize SPI
-  this->spi_setup();
 
   // Reset and initialize CC1101
   if (!this->reset_cc1101()) {
@@ -114,12 +122,37 @@ void Multical21Component::set_meter_id(const std::string &meter_id) {
 void Multical21Component::set_key(const std::string &key) {
   if (key.length() >= 32) {
     this->hex_to_bytes(key, this->aes_key_, 16);
+    // Import key into PSA immediately. This simplifies lifecycle handling
+    // and avoids deferred state.
+    psa_status_t ps = psa_crypto_init();
+    if (ps != PSA_SUCCESS) {
+      ESP_LOGE(TAG, "psa_crypto_init failed in set_key: %d", (int)ps);
+      this->aes_key_set_ = false;
+    } else {
+      // Destroy any existing key handle
+      if (this->aes_key_handle_ != 0) {
+        psa_destroy_key(this->aes_key_handle_);
+        this->aes_key_handle_ = 0;
+      }
 
-    // Initialize mbedtls AES context and set encryption key
-    mbedtls_aes_init(&this->aes_ctx_);
-    mbedtls_aes_setkey_enc(&this->aes_ctx_, this->aes_key_, 128);
+      psa_key_attributes_t attr = PSA_KEY_ATTRIBUTES_INIT;
+      psa_set_key_usage_flags(&attr, PSA_KEY_USAGE_ENCRYPT | PSA_KEY_USAGE_DECRYPT);
+      psa_set_key_algorithm(&attr, PSA_ALG_CTR);
+      psa_set_key_type(&attr, PSA_KEY_TYPE_AES);
+      psa_set_key_bits(&attr, 128);
 
-    ESP_LOGD(TAG, "AES key set (first/last 4 bytes): %02X%02X%02X%02X...%02X%02X%02X%02X",
+      ps = psa_import_key(&attr, this->aes_key_, sizeof(this->aes_key_), &this->aes_key_handle_);
+      psa_reset_key_attributes(&attr);
+
+      if (ps != PSA_SUCCESS) {
+        ESP_LOGE(TAG, "psa_import_key failed in set_key: %d", (int)ps);
+        this->aes_key_set_ = false;
+      } else {
+        this->aes_key_set_ = true;
+      }
+    }
+
+    ESP_LOGD(TAG, "AES key stored (first/last 4 bytes): %02X%02X%02X%02X...%02X%02X%02X%02X",
              this->aes_key_[0], this->aes_key_[1], this->aes_key_[2], this->aes_key_[3],
              this->aes_key_[12], this->aes_key_[13], this->aes_key_[14], this->aes_key_[15]);
   }
@@ -138,7 +171,17 @@ void Multical21Component::hex_to_bytes(const std::string &hex, uint8_t *bytes, s
   }
 }
 
+
+
 void Multical21Component::write_register(uint8_t reg, uint8_t value) {
+  if (!this->spi_is_ready()) {
+    ESP_LOGW(TAG, "write_register: spi not ready, attempting spi_setup()");
+    this->spi_setup();
+    if (!this->spi_is_ready()) {
+      ESP_LOGE(TAG, "write_register: spi still not ready");
+      return;
+    }
+  }
   this->enable();
   delayMicroseconds(5);
   this->transfer_byte(reg);
@@ -147,6 +190,14 @@ void Multical21Component::write_register(uint8_t reg, uint8_t value) {
 }
 
 uint8_t Multical21Component::read_register(uint8_t reg) {
+  if (!this->spi_is_ready()) {
+    ESP_LOGW(TAG, "read_register: spi not ready, attempting spi_setup()");
+    this->spi_setup();
+    if (!this->spi_is_ready()) {
+      ESP_LOGE(TAG, "read_register: spi still not ready");
+      return 0xFF;
+    }
+  }
   this->enable();
   delayMicroseconds(5);
   this->transfer_byte(reg | READ_SINGLE);
@@ -156,6 +207,14 @@ uint8_t Multical21Component::read_register(uint8_t reg) {
 }
 
 uint8_t Multical21Component::read_status_register(uint8_t reg) {
+  if (!this->spi_is_ready()) {
+    ESP_LOGW(TAG, "read_status_register: spi not ready, attempting spi_setup()");
+    this->spi_setup();
+    if (!this->spi_is_ready()) {
+      ESP_LOGE(TAG, "read_status_register: spi still not ready");
+      return 0xFF;
+    }
+  }
   this->enable();
   delayMicroseconds(5);
   this->transfer_byte(reg | READ_BURST);
@@ -167,6 +226,14 @@ uint8_t Multical21Component::read_status_register(uint8_t reg) {
 // Read multiple bytes in a single SPI transaction (burst mode)
 // More efficient than multiple read_register() calls for sequential data
 void Multical21Component::read_burst(uint8_t reg, uint8_t *buffer, uint8_t len) {
+  if (!this->spi_is_ready()) {
+    ESP_LOGW(TAG, "read_burst: spi not ready, attempting spi_setup()");
+    this->spi_setup();
+    if (!this->spi_is_ready()) {
+      ESP_LOGE(TAG, "read_burst: spi still not ready");
+      return;
+    }
+  }
   this->enable();
   delayMicroseconds(5);
   this->transfer_byte(reg | READ_BURST);
@@ -178,6 +245,14 @@ void Multical21Component::read_burst(uint8_t reg, uint8_t *buffer, uint8_t len) 
 }
 
 void Multical21Component::send_strobe(uint8_t strobe) {
+  if (!this->spi_is_ready()) {
+    ESP_LOGW(TAG, "send_strobe: spi not ready, attempting spi_setup()");
+    this->spi_setup();
+    if (!this->spi_is_ready()) {
+      ESP_LOGE(TAG, "send_strobe: spi still not ready");
+      return;
+    }
+  }
   this->enable();
   delayMicroseconds(5);
   this->transfer_byte(strobe);
@@ -186,17 +261,44 @@ void Multical21Component::send_strobe(uint8_t strobe) {
 }
 
 bool Multical21Component::reset_cc1101() {
-  this->disable();
-  delayMicroseconds(5);
+  // Ensure SPI delegate is ready before performing transactions. Try a few
+  // times to initialize the bus; this helps when the bus is initialized
+  // later under certain build configurations.
+  if (!this->spi_is_ready()) {
+    ESP_LOGW(TAG, "SPI not ready during CC1101 reset - attempting spi_setup() with retries");
+    bool ok = false;
+    for (int attempt = 0; attempt < 3; attempt++) {
+      this->spi_setup();
+      if (this->spi_is_ready()) {
+        ok = true;
+        ESP_LOGD(TAG, "spi ready after attempt %d", attempt + 1);
+        break;
+      }
+      delay(20);
+    }
+    if (!ok) {
+      ESP_LOGE(TAG, "SPI still not ready after retries; cannot reset CC1101");
+      return false;
+    }
+  }
 
+  ESP_LOGD(TAG, "reset_cc1101(): performing HW reset sequence");
+
+  // Perform a direct SPI transaction: enable -> strobe -> disable. We
+  // already checked readiness above.
+  if (!this->spi_is_ready()) {
+    ESP_LOGE(TAG, "reset_cc1101(): SPI not ready when attempting reset");
+    return false;
+  }
   this->enable();
+
+  // small pulse cycle
+  ESP_LOGD(TAG, "reset_cc1101(): pulse sequence start");
+  delayMicroseconds(5);
   delayMicroseconds(10);
-  this->disable();
   delayMicroseconds(45);
 
-  this->enable();
-  delayMicroseconds(5);
-
+  ESP_LOGD(TAG, "reset_cc1101(): sending SRES strobe");
   this->transfer_byte(CC1101_SRES);
 
   // Wait for reset to complete
@@ -383,29 +485,61 @@ bool Multical21Component::decrypt_frame(const uint8_t *payload, uint8_t length) 
 // CTR mode: encrypt counter block, XOR with ciphertext to get plaintext
 // Uses pointer arithmetic for efficient memory access
 void Multical21Component::aes_ctr_decrypt(const uint8_t *cipher, uint8_t *plain, uint8_t length, const uint8_t *iv) {
-  uint8_t counter[16];
-  uint8_t keystream[16];
+  if (!this->aes_key_set_ || this->aes_key_handle_ == 0) {
+    ESP_LOGW(TAG, "AES key not set, cannot decrypt");
+    this->decrypt_errors_++;
+    return;
+  }
 
-  memcpy(counter, iv, 16);
+  psa_status_t ps;
+  psa_cipher_operation_t operation = PSA_CIPHER_OPERATION_INIT;
 
-  uint8_t remaining = length;
+  ps = psa_cipher_decrypt_setup(&operation, this->aes_key_handle_, PSA_ALG_CTR);
+  if (ps != PSA_SUCCESS) {
+    ESP_LOGE(TAG, "psa_cipher_decrypt_setup failed: %d", (int)ps);
+    this->decrypt_errors_++;
+    return;
+  }
+
+  ps = psa_cipher_set_iv(&operation, iv, 16);
+  if (ps != PSA_SUCCESS) {
+    ESP_LOGE(TAG, "psa_cipher_set_iv failed: %d", (int)ps);
+    this->decrypt_errors_++;
+    psa_cipher_abort(&operation);
+    return;
+  }
+
+  size_t out_len = 0;
   const uint8_t *src = cipher;
   uint8_t *dst = plain;
+  size_t remaining = (size_t)length;
 
   while (remaining > 0) {
-    // Encrypt counter to get keystream block (mbedtls handles AES rounds)
-    mbedtls_aes_crypt_ecb(&this->aes_ctx_, MBEDTLS_AES_ENCRYPT, counter, keystream);
-
-    // XOR ciphertext with keystream to produce plaintext
-    uint8_t block_len = (remaining < 16) ? remaining : 16;
-    for (uint8_t j = 0; j < block_len; j++) {
-      *dst++ = *src++ ^ keystream[j];
+    size_t chunk = remaining; // PSA streaming update can handle arbitrary chunk sizes
+    ps = psa_cipher_update(&operation, src, chunk, dst, remaining, &out_len);
+    if (ps != PSA_SUCCESS) {
+      ESP_LOGE(TAG, "psa_cipher_update failed: %d", (int)ps);
+      this->decrypt_errors_++;
+      psa_cipher_abort(&operation);
+      return;
     }
-    remaining -= block_len;
-
-    // Increment 128-bit counter (big-endian): increment from LSB, propagate carry
-    for (int j = 15; j >= 0 && ++counter[j] == 0; j--) {}
+    // Advance pointers by out_len
+    src += out_len;
+    dst += out_len;
+    remaining -= out_len;
   }
+
+  // Finish (may output additional data for some algorithms)
+  size_t finish_len = 0;
+  ps = psa_cipher_finish(&operation, dst, 0, &finish_len);
+  if (ps != PSA_SUCCESS) {
+    ESP_LOGE(TAG, "psa_cipher_finish failed: %d", (int)ps);
+    this->decrypt_errors_++;
+    psa_cipher_abort(&operation);
+    return;
+  }
+
+  // Successful decrypt
 }
 
 // CRC16 EN13757 lookup table for wM-Bus frames
