@@ -19,7 +19,7 @@ namespace esphome {
 namespace multical21 {
 
 // Component version (update on each release)
-static const char *const VERSION = "1.0.1";
+static const char *const VERSION = "1.1.0";
 
 // CC1101 Register addresses
 static const uint8_t CC1101_IOCFG2 = 0x00;

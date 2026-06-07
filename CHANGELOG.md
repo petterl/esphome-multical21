@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-06-07
+
+### Changed
+- Migrated AES-128 CTR decryption from mbedtls to the PSA Crypto API, since mbedtls is no longer bundled from ESP-IDF 6.0 onwards (#2). The AES key is now imported into PSA in `set_key()`.
+
+### Added
+- `volume_flow_rate` device class on the current flow sensor, avoiding a warning when adding it to the Home Assistant energy tab (#2)
+
+### Credits
+- Crypto and sensor changes co-authored by [@peacefulhill](https://github.com/peacefulhill)
+
 ## [1.0.1] - 2026-02-06
 
 ### Fixed
@@ -29,5 +40,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Version constant with boot logging
 - Semantic versioning via git tags
 
+[1.1.0]: https://github.com/petterl/esphome-multical21/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/petterl/esphome-multical21/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/petterl/esphome-multical21/releases/tag/v1.0.0
