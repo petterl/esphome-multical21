@@ -18,7 +18,7 @@ static const char *const TAG = "multical21";
 void Multical21Component::setup() {
   ESP_LOGCONFIG(TAG, "Setting up Multical21 v%s...", VERSION);
 
-  // Note: mbedtls AES context is initialized in set_key() which is called before setup()
+  // Note: the AES key is imported into PSA in set_key() which is called before setup()
 
   // Setup GDO0 pin
   if (this->gdo0_pin_ != nullptr) {
@@ -111,11 +111,37 @@ void Multical21Component::set_key(const std::string &key) {
   if (key.length() >= 32) {
     this->hex_to_bytes(key, this->aes_key_, 16);
 
-    // Initialize mbedtls AES context and set encryption key
-    mbedtls_aes_init(&this->aes_ctx_);
-    mbedtls_aes_setkey_enc(&this->aes_ctx_, this->aes_key_, 128);
+    // Import key into PSA immediately. This simplifies lifecycle handling
+    // and avoids deferred state.
+    psa_status_t ps = psa_crypto_init();
+    if (ps != PSA_SUCCESS) {
+      ESP_LOGE(TAG, "psa_crypto_init failed in set_key: %d", (int)ps);
+      this->aes_key_set_ = false;
+    } else {
+      // Destroy any existing key handle
+      if (this->aes_key_handle_ != 0) {
+        psa_destroy_key(this->aes_key_handle_);
+        this->aes_key_handle_ = 0;
+      }
 
-    ESP_LOGD(TAG, "AES key set (first/last 4 bytes): %02X%02X%02X%02X...%02X%02X%02X%02X",
+      psa_key_attributes_t attr = PSA_KEY_ATTRIBUTES_INIT;
+      psa_set_key_usage_flags(&attr, PSA_KEY_USAGE_ENCRYPT | PSA_KEY_USAGE_DECRYPT);
+      psa_set_key_algorithm(&attr, PSA_ALG_CTR);
+      psa_set_key_type(&attr, PSA_KEY_TYPE_AES);
+      psa_set_key_bits(&attr, 128);
+
+      ps = psa_import_key(&attr, this->aes_key_, sizeof(this->aes_key_), &this->aes_key_handle_);
+      psa_reset_key_attributes(&attr);
+
+      if (ps != PSA_SUCCESS) {
+        ESP_LOGE(TAG, "psa_import_key failed in set_key: %d", (int)ps);
+        this->aes_key_set_ = false;
+      } else {
+        this->aes_key_set_ = true;
+      }
+    }
+
+    ESP_LOGD(TAG, "AES key stored (first/last 4 bytes): %02X%02X%02X%02X...%02X%02X%02X%02X",
              this->aes_key_[0], this->aes_key_[1], this->aes_key_[2], this->aes_key_[3],
              this->aes_key_[12], this->aes_key_[13], this->aes_key_[14], this->aes_key_[15]);
   }
@@ -375,32 +401,60 @@ bool Multical21Component::decrypt_frame(const uint8_t *payload, uint8_t length) 
   return true;
 }
 
-// AES-128 CTR mode decryption using mbedtls
+// AES-128 CTR mode decryption using PSA
 // CTR mode: encrypt counter block, XOR with ciphertext to get plaintext
-// Uses pointer arithmetic for efficient memory access
 void Multical21Component::aes_ctr_decrypt(const uint8_t *cipher, uint8_t *plain, uint8_t length, const uint8_t *iv) {
-  uint8_t counter[16];
-  uint8_t keystream[16];
+  if (!this->aes_key_set_ || this->aes_key_handle_ == 0) {
+    ESP_LOGW(TAG, "AES key not set, cannot decrypt");
+    this->decrypt_errors_++;
+    return;
+  }
 
-  memcpy(counter, iv, 16);
+  psa_status_t ps;
+  psa_cipher_operation_t operation = PSA_CIPHER_OPERATION_INIT;
 
-  uint8_t remaining = length;
+  ps = psa_cipher_decrypt_setup(&operation, this->aes_key_handle_, PSA_ALG_CTR);
+  if (ps != PSA_SUCCESS) {
+    ESP_LOGE(TAG, "psa_cipher_decrypt_setup failed: %d", (int)ps);
+    this->decrypt_errors_++;
+    return;
+  }
+
+  ps = psa_cipher_set_iv(&operation, iv, 16);
+  if (ps != PSA_SUCCESS) {
+    ESP_LOGE(TAG, "psa_cipher_set_iv failed: %d", (int)ps);
+    this->decrypt_errors_++;
+    psa_cipher_abort(&operation);
+    return;
+  }
+
+  size_t out_len = 0;
   const uint8_t *src = cipher;
   uint8_t *dst = plain;
+  size_t remaining = (size_t)length;
 
   while (remaining > 0) {
-    // Encrypt counter to get keystream block (mbedtls handles AES rounds)
-    mbedtls_aes_crypt_ecb(&this->aes_ctx_, MBEDTLS_AES_ENCRYPT, counter, keystream);
-
-    // XOR ciphertext with keystream to produce plaintext
-    uint8_t block_len = (remaining < 16) ? remaining : 16;
-    for (uint8_t j = 0; j < block_len; j++) {
-      *dst++ = *src++ ^ keystream[j];
+    size_t chunk = remaining;  // PSA streaming update can handle arbitrary chunk sizes
+    ps = psa_cipher_update(&operation, src, chunk, dst, remaining, &out_len);
+    if (ps != PSA_SUCCESS) {
+      ESP_LOGE(TAG, "psa_cipher_update failed: %d", (int)ps);
+      this->decrypt_errors_++;
+      psa_cipher_abort(&operation);
+      return;
     }
-    remaining -= block_len;
+    src += out_len;
+    dst += out_len;
+    remaining -= out_len;
+  }
 
-    // Increment 128-bit counter (big-endian): increment from LSB, propagate carry
-    for (int j = 15; j >= 0 && ++counter[j] == 0; j--) {}
+  // Finish (may output additional data for some algorithms)
+  size_t finish_len = 0;
+  ps = psa_cipher_finish(&operation, dst, 0, &finish_len);
+  if (ps != PSA_SUCCESS) {
+    ESP_LOGE(TAG, "psa_cipher_finish failed: %d", (int)ps);
+    this->decrypt_errors_++;
+    psa_cipher_abort(&operation);
+    return;
   }
 }
 
