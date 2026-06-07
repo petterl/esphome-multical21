@@ -238,10 +238,23 @@ sensor:
 
 ## Credits
 
+This project is part of a fork chain:
+
+```
+chester4444/esp-multical21   (original — PlatformIO/Arduino)
+        └── pthalin/esp32-multical21   (fork)
+                └── petterl/esp32-multical21   (this repo — rewritten as an ESPHome component)
+```
+
 Based on work by:
 
-- [Patrik Thalin](https://github.com/pthalin/esp32-multical21) - Original ESP32 implementation
-- [Chester](https://github.com/chester4444/esp-multical21) - wM-Bus protocol implementation
+- [Patrik Thalin](https://github.com/pthalin/esp32-multical21) - ESP32 implementation this repo was forked from
+- [Chester](https://github.com/chester4444/esp-multical21) - original wM-Bus protocol implementation (PlatformIO/Arduino)
+
+> **Note:** The upstream repos have diverged from this one. `chester4444/esp-multical21`
+> is a PlatformIO/Arduino project (last updated December 2023) and `pthalin/esp32-multical21`
+> is its fork; this repo rewrote the code as an ESPHome external component, so upstream
+> changes can no longer be merged directly.
 
 ## License
 
