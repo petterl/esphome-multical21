@@ -40,3 +40,33 @@ jobs:
 
       - name: Run tests
         run: pytest tests/ -v
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - tests/build/esp32.yaml
+          - tests/build/esp32-c3.yaml
+          - tests/build/esp8266.yaml
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache platform tooling
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: platformio-${{ matrix.config }}-${{ hashFiles('components/multical21/**') }}
+          restore-keys: |
+            platformio-${{ matrix.config }}-
+
+      - name: Install ESPHome
+        run: pip install esphome
+
+      - name: Compile ${{ matrix.config }}
+        run: esphome compile ${{ matrix.config }}
